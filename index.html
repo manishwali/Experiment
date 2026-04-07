@@ -223,6 +223,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     <button class="btn-update" onclick="openManualInputs()" style="background:rgba(255,255,255,.08)">
       &#9998; Manual Inputs
     </button>
+    <button class="btn-update" onclick="clearGHToken()" style="background:rgba(255,255,255,.05);font-size:11px" title="Clear saved GitHub token from session">
+      &#128274; Clear Token
+    </button>
   </div>
 </div>
 
@@ -671,7 +674,10 @@ const KPI_META = [
 
 // Dynamic pod insights — generated from live data, not hardcoded
 function getPodInsights(pName, pd) {
-  const mi = 2; // Mar
+  // Use latest active month dynamically
+  const mi = ACTIVE_MONTHS.length > 0
+    ? MONTHS.indexOf(ACTIVE_MONTHS[ACTIVE_MONTHS.length - 1])
+    : 2;
   const insights = [];
   const kpis = KPI_META;
 
@@ -823,17 +829,28 @@ async function loadData() {
   setUpdateBtn(false);
 }
 
+// Jan-Mar (indices 0-2) are static/protected — CSV refresh only writes Apr onwards
+const STATIC_MONTHS = 3; // first 3 months are locked from CSV overwrites
+
 function calculateKPIs(pbis, bugs, features, sprints) {
+  // Start by loading static Q1 data as the base, then layer CSV data on top for Apr+
+  loadSampleData();
+  const staticOrg = JSON.parse(JSON.stringify(state.orgData));
+  const staticPod = JSON.parse(JSON.stringify(state.podData));
+
+  const N = MONTHS.length; // 12
   const pod = {};
   POD_NAMES.forEach(p => {
-    pod[p] = { fv:[0,0,0], dvSum:[0,0,0], dvCnt:[0,0,0],
-               alignSP:[0,0,0], tdSP:[0,0,0], totalSP:[0,0,0],
-               prodBugs:[0,0,0], totalBugs:[0,0,0],
-               srReady:[0,0,0], srTotal:[0,0,0],
-               rqDefect:[0,0,0], rqBugTotal:[0,0,0],
-               ttdSum:[0,0,0], ttdCnt:[0,0,0],
-               bvSum:[0,0,0],  bvCnt:[0,0,0],
-               t2fuSum:[0,0,0],t2fuCnt:[0,0,0] };
+    pod[p] = {
+      fv:       Array(N).fill(0), dvSum:    Array(N).fill(0), dvCnt:    Array(N).fill(0),
+      alignSP:  Array(N).fill(0), tdSP:     Array(N).fill(0), totalSP:  Array(N).fill(0),
+      prodBugs: Array(N).fill(0), totalBugs:Array(N).fill(0),
+      srReady:  Array(N).fill(0), srTotal:  Array(N).fill(0),
+      rqDefect: Array(N).fill(0), rqBugTotal:Array(N).fill(0),
+      ttdSum:   Array(N).fill(0), ttdCnt:   Array(N).fill(0),
+      bvSum:    Array(N).fill(0), bvCnt:    Array(N).fill(0),
+      t2fuSum:  Array(N).fill(0), t2fuCnt:  Array(N).fill(0)
+    };
   });
 
   // Sprint lookup: iterationPath → {project, createdDate, month}
@@ -844,11 +861,12 @@ function calculateKPIs(pbis, bugs, features, sprints) {
     sprintMap[s.IterationPath] = { pod: pName, created: s.CreatedDate, month: s.Month };
   });
 
-  // PBIs
+  // PBIs — skip Jan-Mar (mi < STATIC_MONTHS), those months are locked as static
   pbis.forEach(r => {
     const pName = PROJECTS[r.Project];
     if (!pName || !pod[pName]) return;
     const mi = MONTHS.indexOf(r.Month);
+    if (mi < STATIC_MONTHS) return; // protect Jan-Mar static data
     if (mi < 0) return;
     const sp = parseFloat(r.StoryPoints) || 0;
 
@@ -874,22 +892,24 @@ function calculateKPIs(pbis, bugs, features, sprints) {
     if (r.CT_InProgress) pod[pName].srReady[mi]++;
   });
 
-  // Bugs → Defect Leakage + Release Quality
+  // Bugs — skip Jan-Mar static months
   const prodOrigins = ['Customer','Solution Engineering','Sustenance Engineering'];
   bugs.forEach(r => {
     const pName = PROJECTS[r.Project];
     if (!pName || !pod[pName]) return;
     const mi = MONTHS.indexOf(r.Month);
+    if (mi < STATIC_MONTHS) return;
     if (mi < 0) return;
     pod[pName].totalBugs[mi]++;
     if (prodOrigins.includes(r.BugOrigin)) pod[pName].prodBugs[mi]++;
   });
 
-  // Features → TTD + BV
+  // Features — skip Jan-Mar static months
   features.forEach(r => {
     const pName = PROJECTS[r.Project];
     if (!pName || !pod[pName]) return;
     const mi = MONTHS.indexOf(r.Month);
+    if (mi < STATIC_MONTHS) return;
     if (mi < 0) return;
     if (r.TTD_Days && parseFloat(r.TTD_Days) > 0) {
       pod[pName].ttdSum[mi] += parseFloat(r.TTD_Days);
@@ -905,14 +925,16 @@ function calculateKPIs(pbis, bugs, features, sprints) {
     }
   });
 
-  // Build podData + orgData
-  const orgAcc = { fv:[0,0,0], dvSum:[0,0,0], dvCnt:[0,0,0],
-                   alignSP:[0,0,0], tdSP:[0,0,0], totalSP:[0,0,0],
-                   prodBugs:[0,0,0], totalBugs:[0,0,0],
-                   srReady:[0,0,0], srTotal:[0,0,0],
-                   ttdSum:[0,0,0], ttdCnt:[0,0,0],
-                   bvSum:[0,0,0],  bvCnt:[0,0,0],
-                   t2fuSum:[0,0,0],t2fuCnt:[0,0,0] };
+  // Build podData + orgData — 12 months
+  const orgAcc = {
+    fv:       Array(N).fill(0), dvSum:    Array(N).fill(0), dvCnt:    Array(N).fill(0),
+    alignSP:  Array(N).fill(0), tdSP:     Array(N).fill(0), totalSP:  Array(N).fill(0),
+    prodBugs: Array(N).fill(0), totalBugs:Array(N).fill(0),
+    srReady:  Array(N).fill(0), srTotal:  Array(N).fill(0),
+    ttdSum:   Array(N).fill(0), ttdCnt:   Array(N).fill(0),
+    bvSum:    Array(N).fill(0), bvCnt:    Array(N).fill(0),
+    t2fuSum:  Array(N).fill(0), t2fuCnt:  Array(N).fill(0)
+  };
 
   state.podData = {};
   POD_NAMES.forEach(p => {
@@ -985,13 +1007,29 @@ function calculateKPIs(pbis, bugs, features, sprints) {
   });
   state.orgData = o;
 
-  // Compute ACTIVE_MONTHS from actual data — any month with at least FV or bug data
+  // Merge static Q1 data back in (Jan-Mar locked, never overwritten by CSV)
+  for (let mi = 0; mi < STATIC_MONTHS; mi++) {
+    Object.keys(staticOrg).forEach(k => {
+      if (k.endsWith('_'+mi)) o[k] = staticOrg[k];
+    });
+  }
+  POD_NAMES.forEach(p => {
+    if (!state.podData[p] || !staticPod[p]) return;
+    for (let mi = 0; mi < STATIC_MONTHS; mi++) {
+      Object.keys(staticPod[p]).forEach(k => {
+        if (k.endsWith('_'+mi)) state.podData[p][k] = staticPod[p][k];
+      });
+    }
+    state.podData[p].score = calcPodScore(state.podData[p]);
+  });
+
+  // Compute ACTIVE_MONTHS — any month with real data (includes static Q1)
   ACTIVE_MONTHS = MONTHS.filter((m, mi) =>
     (o['fv_'+mi] && o['fv_'+mi] > 0) ||
     (o['rq_'+mi] && o['rq_'+mi] < 100) ||
     (o['sr_'+mi] !== null && o['sr_'+mi] !== undefined)
   );
-  if (ACTIVE_MONTHS.length === 0) ACTIVE_MONTHS = ['Jan-26','Feb-26','Mar-26']; // fallback
+  if (ACTIVE_MONTHS.length === 0) ACTIVE_MONTHS = ['Jan-26','Feb-26','Mar-26'];
 }
 
 function getArr(data, key, activeOnly=true) {
@@ -1015,9 +1053,11 @@ function getArrLabels(activeOnly=true) {
 }
 
 function calcPodScore(pd) {
-  // 9-KPI composite score (0-100), equal weight — matches Excel Pod Health Score
-  // Each component normalised to 0-100
-  const mi = 2; // use Mar (latest month)
+  // 9-KPI composite score (0-100), equal weight
+  // Use latest active month dynamically (not hardcoded to March)
+  const mi = ACTIVE_MONTHS.length > 0
+    ? MONTHS.indexOf(ACTIVE_MONTHS[ACTIVE_MONTHS.length - 1])
+    : 2;
   const scores = [];
 
   // 1. FV: MIN(FV/200*100, 100)
@@ -2199,7 +2239,7 @@ function miSelectPod(pod) {
 
 async function saveManualDataToGitHub() {
   const token = getGHToken();
-  if (!token) return false;
+  if (!token) { console.warn('No GitHub token — manual data not saved to GitHub.'); return false; }
   const content = btoa(JSON.stringify(state.manualInputs, null, 2));
   const getUrl  = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/manual_data.json`;
   const ghHdrs  = {
@@ -2263,26 +2303,26 @@ async function loadManualDataFromGitHub() {
 // ═══════════════════════════════════════════════════════════════════════
 // GITHUB ACTIONS - Trigger ADO data refresh
 // ═══════════════════════════════════════════════════════════════════════
-// GitHub token — stored in sessionStorage so it never appears in source code
-// On first use, user is prompted once per session
 const GH_OWNER    = 'manishwali';
 const GH_REPO     = 'Experiment';
 const GH_WORKFLOW = 'refresh.yml';
 
 function getGHToken() {
-  let token = sessionStorage.getItem('gh_kpi_token');
+  let token = sessionStorage.getItem('gh_token');
   if (!token) {
     token = prompt(
-      'Enter your GitHub Personal Access Token to enable data sync.\n' +
-      '(This is stored only in your browser session — never sent anywhere except GitHub API)'
+      'Enter your GitHub Personal Access Token (PAT).\n\nRequired permissions: Actions (write) + Contents (write)\nStored only in your browser session — never saved to disk.',
+      ''
     );
-    if (token) sessionStorage.setItem('gh_kpi_token', token.trim());
+    if (token && token.trim()) sessionStorage.setItem('gh_token', token.trim());
   }
-  return token || '';
+  return token ? token.trim() : null;
 }
 
-// Alias used throughout the code
-const GH_TOKEN = null; // Always use getGHToken() instead
+function clearGHToken() {
+  sessionStorage.removeItem('gh_token');
+  setBanner('info', 'GitHub token cleared from session. You will be prompted again on next use.');
+}
 
 async function triggerADORefresh() {
   const btn = document.getElementById('refreshBtn');
@@ -2290,6 +2330,12 @@ async function triggerADORefresh() {
   const label = document.getElementById('refreshLabel');
 
   // Ask user for date range
+  const token = getGHToken();
+  if (!token) {
+    setBanner('error', 'No GitHub token provided. Cannot trigger ADO refresh.');
+    return;
+  }
+
   const startDate = prompt('Start date (YYYY-MM-DD):', '2026-04-01');
   if (!startDate) return;
   const endDate = prompt('End date (YYYY-MM-DD):', '2026-06-30');
@@ -2297,9 +2343,6 @@ async function triggerADORefresh() {
 
   btn.classList.add('loading');
   icon.innerHTML = '<span class="spinner"></span>';
-  const token = getGHToken();
-  if (!token) { setBanner('error', 'GitHub token required to trigger refresh.'); return; }
-
   label.textContent = 'Triggering...';
   setBanner('info', 'Triggering ADO data pull via GitHub Actions. This takes 3-5 minutes...');
 
@@ -2322,33 +2365,16 @@ async function triggerADORefresh() {
     );
 
     if (resp.status === 204) {
-      setBanner('info', 'ADO pull triggered! Checking for new data every 30 seconds...');
-
-      // Record the current CSV commit SHA so we can detect when it changes
-      let previousSha = await getCSVCommitSha();
-      let elapsed = 0;
-      const maxWait = 600; // 10 minutes max
-      const interval = 30; // check every 30s
-
-      const pollTimer = setInterval(async () => {
-        elapsed += interval;
-        const mins = Math.floor(elapsed / 60);
-        const secs = elapsed % 60;
-        const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-
-        const currentSha = await getCSVCommitSha();
-        if (currentSha && currentSha !== previousSha) {
-          clearInterval(pollTimer);
-          setBanner('success', `Fresh ADO data is ready (${timeStr})! Loading now...`);
-          setTimeout(() => loadData(), 1000);
-        } else if (elapsed >= maxWait) {
-          clearInterval(pollTimer);
-          setBanner('warn', 'Refresh is taking longer than expected. Click "Update Dashboard" manually to check.');
-        } else {
-          setBanner('info', `Waiting for ADO data... (${timeStr} elapsed). GitHub Actions is running.`);
-        }
-      }, interval * 1000);
-
+      setBanner('success',
+        'ADO pull triggered! GitHub Actions is now pulling data from Azure DevOps. ' +
+        'Takes ~3-5 minutes. Then click "Update Dashboard" to load the fresh data.');
+      setTimeout(() => {
+        setBanner('info', 'Auto-reloading dashboard with fresh ADO data...');
+        loadData();
+      }, 300000);
+    } else if (resp.status === 401) {
+      sessionStorage.removeItem('gh_token'); // clear bad token
+      setBanner('error', 'GitHub token invalid or expired. Token cleared — try again.');
     } else {
       const err = await resp.text();
       setBanner('error', `Failed to trigger refresh (${resp.status}). Check GitHub token. ${err}`);
@@ -2360,19 +2386,6 @@ async function triggerADORefresh() {
   btn.classList.remove('loading');
   icon.innerHTML = '&#9652;';
   label.textContent = 'Refresh from ADO';
-}
-
-// Get latest commit SHA for the CSV files — used to detect when data is refreshed
-async function getCSVCommitSha() {
-  try {
-    const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/commits?path=KPI_PBIs.csv&per_page=1`;
-    const resp = await fetch(url, {
-      headers: { Accept: 'application/vnd.github+json' }
-    });
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    return data[0]?.sha || null;
-  } catch { return null; }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -2390,24 +2403,6 @@ loadManualDataFromGitHub().then(loaded => {
     renderAll();
     setBanner('info', 'Dashboard loaded with saved manual inputs from GitHub.');
   }
-});
-
-// Show when CSVs were last updated from GitHub
-getCSVCommitSha().then(async () => {
-  try {
-    const url = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/commits?path=KPI_PBIs.csv&per_page=1`;
-    const resp = await fetch(url, { headers: { Accept: 'application/vnd.github+json' } });
-    if (!resp.ok) return;
-    const data = await resp.json();
-    if (data[0]) {
-      const commitDate = new Date(data[0].commit.committer.date);
-      const formatted  = commitDate.toLocaleDateString('en-GB', {
-        day:'2-digit', month:'short', year:'numeric',
-        hour:'2-digit', minute:'2-digit'
-      });
-      document.getElementById('lastUpdated').textContent = `CSVs last refreshed: ${formatted}`;
-    }
-  } catch {}
 });
 </script>
 </body>
