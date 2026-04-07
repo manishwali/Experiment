@@ -49,33 +49,36 @@ jobs:
           $FEATURE_OUT = "$OUTDIR\KPI_Features.csv"
           $SPRINT_OUT  = "$OUTDIR\KPI_Sprints.csv"
 
-          # --- FIX: robust date parsing with fallback defaults ---
-          $StartDateRaw = $env:START_DATE
-          $EndDateRaw   = $env:END_DATE
+          # --- FIX: inject dates directly from workflow inputs at YAML level ---
+          # env vars are unreliable for workflow_dispatch inputs on Windows runners
+          # dates are baked in via the run: block directly below
+          $StartDate = "${{ github.event.inputs.start_date }}"
+          $EndDate   = "${{ github.event.inputs.end_date }}"
 
-          if ([string]::IsNullOrWhiteSpace($StartDateRaw)) {
-            Write-Host "WARNING: START_DATE is empty, using default 2026-04-01"
-            $StartDateRaw = "2026-04-01"
+          # Fallback if still empty (e.g. triggered via API without inputs)
+          if ([string]::IsNullOrWhiteSpace($StartDate) -or $StartDate -eq "") {
+            Write-Host "WARNING: start_date input empty, using default 2026-01-01"
+            $StartDate = "2026-01-01"
           }
-          if ([string]::IsNullOrWhiteSpace($EndDateRaw)) {
-            Write-Host "WARNING: END_DATE is empty, using default 2026-06-30"
-            $EndDateRaw = "2026-06-30"
+          if ([string]::IsNullOrWhiteSpace($EndDate) -or $EndDate -eq "") {
+            Write-Host "WARNING: end_date input empty, using default 2026-04-07"
+            $EndDate = "2026-04-07"
           }
 
-          # Trim to YYYY-MM-DD in case extra chars slipped in
-          $StartDate = $StartDateRaw.Trim().Substring(0, [Math]::Min(10, $StartDateRaw.Trim().Length))
-          $EndDate   = $EndDateRaw.Trim().Substring(0, [Math]::Min(10, $EndDateRaw.Trim().Length))
+          # Trim to exactly YYYY-MM-DD
+          $StartDate = $StartDate.Trim().Substring(0, [Math]::Min(10, $StartDate.Trim().Length))
+          $EndDate   = $EndDate.Trim().Substring(0, [Math]::Min(10, $EndDate.Trim().Length))
 
           try {
             $periodStart = [datetime]::ParseExact($StartDate, "yyyy-MM-dd", $null)
           } catch {
-            Write-Host "ERROR: Could not parse START_DATE '$StartDate'. Expected format: YYYY-MM-DD"
+            Write-Host "ERROR: Could not parse start_date: '$StartDate'"
             exit 1
           }
           try {
             $periodEnd = [datetime]::ParseExact($EndDate, "yyyy-MM-dd", $null)
           } catch {
-            Write-Host "ERROR: Could not parse END_DATE '$EndDate'. Expected format: YYYY-MM-DD"
+            Write-Host "ERROR: Could not parse end_date: '$EndDate'"
             exit 1
           }
 
