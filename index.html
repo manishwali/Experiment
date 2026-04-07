@@ -684,6 +684,12 @@ const PROJECTS = {
 const POD_NAMES = Object.values(PROJECTS);
 const C = { blue:'#185fa5', amber:'#854f0b', green:'#059669', red:'#DC2626', gray:'#888780' };
 
+// ── GitHub constants (declared early so readCSV can use them) ─────────
+const GH_OWNER    = 'manishwali';
+const GH_REPO     = 'Experiment';
+const GH_WORKFLOW = 'refresh.yml';
+const GH_RAW_BASE = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/main`;
+
 const KPI_META = [
   {key:'ttd',    label:'Time to Demo',         unit:'d',    dir:'down', tgt:90,     tgtLabel:'< 90d',      group:'corporate'},
   {key:'adopt',  label:'Product Adoption',      unit:'%',    dir:'up',   tgt:80,     tgtLabel:'≥ 80%',      group:'corporate'},
@@ -803,12 +809,6 @@ function parseCSV(text) {
 // ── Data source configuration ─────────────────────────────────────────
 const SP_HOST   = 'https://aurigo.sharepoint.com';
 const SP_FOLDER = '/sites/ProductManagement/KPI Dashboard';
-
-// GitHub constants — defined here so readCSV can use them
-const GH_OWNER    = 'manishwali';
-const GH_REPO     = 'Experiment';
-const GH_WORKFLOW = 'refresh.yml';
-const GH_RAW_BASE = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/main`;
 
 function spFileUrl(filename) {
   const rel = `${SP_FOLDER}/${filename}`;
