@@ -1,16 +1,18 @@
 name: Refresh KPI Data
 
 on:
+  schedule:
+    - cron: '0 1 * * *'   # runs daily at 1:00 AM UTC (6:30 AM IST)
   workflow_dispatch:
     inputs:
       start_date:
-        description: 'Start date (YYYY-MM-DD)'
-        required: true
-        default: '2026-04-01'
+        description: 'Start date (YYYY-MM-DD) — leave blank for auto (yesterday)'
+        required: false
+        default: ''
       end_date:
-        description: 'End date (YYYY-MM-DD)'
-        required: true
-        default: '2026-06-30'
+        description: 'End date (YYYY-MM-DD) — leave blank for auto (today)'
+        required: false
+        default: ''
 
 jobs:
   refresh:
@@ -49,20 +51,18 @@ jobs:
           $FEATURE_OUT = "$OUTDIR\KPI_Features.csv"
           $SPRINT_OUT  = "$OUTDIR\KPI_Sprints.csv"
 
-          # --- FIX: inject dates directly from workflow inputs at YAML level ---
-          # env vars are unreliable for workflow_dispatch inputs on Windows runners
-          # dates are baked in via the run: block directly below
+          # --- Date handling: auto yesterday->today for scheduled runs ---
           $StartDate = "${{ github.event.inputs.start_date }}"
           $EndDate   = "${{ github.event.inputs.end_date }}"
 
-          # Fallback if still empty (e.g. triggered via API without inputs)
+          # Scheduled runs have empty inputs — default to yesterday -> today
           if ([string]::IsNullOrWhiteSpace($StartDate) -or $StartDate -eq "") {
-            Write-Host "WARNING: start_date input empty, using default 2026-01-01"
-            $StartDate = "2026-01-01"
+            $StartDate = (Get-Date).AddDays(-1).ToString("yyyy-MM-dd")
+            Write-Host "Auto start_date (yesterday): $StartDate"
           }
           if ([string]::IsNullOrWhiteSpace($EndDate) -or $EndDate -eq "") {
-            Write-Host "WARNING: end_date input empty, using default 2026-04-07"
-            $EndDate = "2026-04-07"
+            $EndDate = (Get-Date).ToString("yyyy-MM-dd")
+            Write-Host "Auto end_date (today): $EndDate"
           }
 
           # Trim to exactly YYYY-MM-DD
@@ -83,7 +83,7 @@ jobs:
           }
 
           Write-Host "Period: $($periodStart.ToString('yyyy-MM-dd')) to $($periodEnd.ToString('yyyy-MM-dd'))"
-          # --- end fix ---
+          # --- end date handling ---
 
           $base64  = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$PAT"))
           $headers = @{
@@ -165,8 +165,17 @@ jobs:
               })
             }
           }
-          $allSprints | Export-Csv -Path $SPRINT_OUT -NoTypeInformation -Encoding UTF8
-          Write-Host "Sprints: $($allSprints.Count) rows"
+          # Merge with existing CSV (keep old rows, append new, deduplicate by Project+SprintName)
+          if (Test-Path $SPRINT_OUT) {
+            $existing = Import-Csv $SPRINT_OUT
+            $combined = @($existing) + @($allSprints)
+            $merged = $combined | Sort-Object Project, SprintName -Unique
+            Write-Host "Sprints: $($allSprints.Count) new rows, $($existing.Count) existing, $($merged.Count) after merge"
+            $merged | Export-Csv -Path $SPRINT_OUT -NoTypeInformation -Encoding UTF8
+          } else {
+            $allSprints | Export-Csv -Path $SPRINT_OUT -NoTypeInformation -Encoding UTF8
+            Write-Host "Sprints: $($allSprints.Count) rows (new file)"
+          }
 
           # PBIs
           Write-Host "Pulling PBIs..."
@@ -216,8 +225,18 @@ jobs:
               })
             }
           }
-          $allPBIs | Export-Csv -Path $PBI_OUT -NoTypeInformation -Encoding UTF8
-          Write-Host "PBIs: $($allPBIs.Count) rows"
+          # Merge with existing CSV (deduplicate by ID)
+          if (Test-Path $PBI_OUT) {
+            $existing = Import-Csv $PBI_OUT
+            $existingIds = $existing | ForEach-Object { $_.ID }
+            $newRows = $allPBIs | Where-Object { $existingIds -notcontains $_.ID }
+            $merged = @($existing) + @($newRows)
+            Write-Host "PBIs: $($allPBIs.Count) pulled, $($newRows.Count) new, $($merged.Count) total after merge"
+            $merged | Export-Csv -Path $PBI_OUT -NoTypeInformation -Encoding UTF8
+          } else {
+            $allPBIs | Export-Csv -Path $PBI_OUT -NoTypeInformation -Encoding UTF8
+            Write-Host "PBIs: $($allPBIs.Count) rows (new file)"
+          }
 
           # BUGS
           Write-Host "Pulling bugs..."
@@ -256,8 +275,18 @@ jobs:
               })
             }
           }
-          $allBugs | Export-Csv -Path $BUG_OUT -NoTypeInformation -Encoding UTF8
-          Write-Host "Bugs: $($allBugs.Count) rows"
+          # Merge with existing CSV (deduplicate by ID)
+          if (Test-Path $BUG_OUT) {
+            $existing = Import-Csv $BUG_OUT
+            $existingIds = $existing | ForEach-Object { $_.ID }
+            $newRows = $allBugs | Where-Object { $existingIds -notcontains $_.ID }
+            $merged = @($existing) + @($newRows)
+            Write-Host "Bugs: $($allBugs.Count) pulled, $($newRows.Count) new, $($merged.Count) total after merge"
+            $merged | Export-Csv -Path $BUG_OUT -NoTypeInformation -Encoding UTF8
+          } else {
+            $allBugs | Export-Csv -Path $BUG_OUT -NoTypeInformation -Encoding UTF8
+            Write-Host "Bugs: $($allBugs.Count) rows (new file)"
+          }
 
           # FEATURES
           Write-Host "Pulling features..."
@@ -324,9 +353,19 @@ jobs:
               })
             }
           }
-          $allFeatures | Export-Csv -Path $FEATURE_OUT -NoTypeInformation -Encoding UTF8
-          Write-Host "Features: $($allFeatures.Count) rows"
-          Write-Host "All CSVs generated successfully."
+          # Merge with existing CSV (deduplicate by ID)
+          if (Test-Path $FEATURE_OUT) {
+            $existing = Import-Csv $FEATURE_OUT
+            $existingIds = $existing | ForEach-Object { $_.ID }
+            $newRows = $allFeatures | Where-Object { $existingIds -notcontains $_.ID }
+            $merged = @($existing) + @($newRows)
+            Write-Host "Features: $($allFeatures.Count) pulled, $($newRows.Count) new, $($merged.Count) total after merge"
+            $merged | Export-Csv -Path $FEATURE_OUT -NoTypeInformation -Encoding UTF8
+          } else {
+            $allFeatures | Export-Csv -Path $FEATURE_OUT -NoTypeInformation -Encoding UTF8
+            Write-Host "Features: $($allFeatures.Count) rows (new file)"
+          }
+          Write-Host "All CSVs merged successfully."
 
       - name: Commit and push CSVs
         shell: bash
