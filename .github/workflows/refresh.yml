@@ -125,7 +125,7 @@ jobs:
                         "System.CreatedDate,System.IterationPath,System.Parent," +
                         "Microsoft.VSTS.Common.ClosedDate,Microsoft.VSTS.Scheduling.StoryPoints," +
                         "Custom.ValueAreas,Custom.CT_InProgress,Custom.DemoDate," +
-                        "Custom.BV_Total_Score,Custom.BugsOrigin,Custom.T2FU_Days"
+                        "Custom.BV_Total_Score,Custom.BugsOrigin"
               $url = "https://dev.azure.com/$ORG/_apis/wit/workitems?ids=$idStr&fields=$fields&api-version=7.0"
               try {
                 $resp = Invoke-RestMethod -Uri $url -Headers $headers -Method Get -ErrorAction Stop
@@ -306,6 +306,13 @@ jobs:
                   }
                 } catch {}
               }
+              # Fetch T2FU_Days separately — field only exists in some projects
+              $t2fuDays = ""
+              $t2fuUrl = "https://dev.azure.com/$ORG/_apis/wit/workitems/$($wi.id)?fields=Custom.T2FU_Days&api-version=7.0"
+              try {
+                $t2fuResp = Invoke-RestMethod -Uri $t2fuUrl -Headers $headers -Method Get -ErrorAction Stop
+                $t2fuDays = Get-FieldValue $t2fuResp.fields "Custom.T2FU_Days"
+              } catch { $t2fuDays = "" }
               $allFeatures.Add([PSCustomObject]@{
                 ID = $wi.id; Title = Get-FieldValue $f "System.Title"
                 Project = Get-FieldValue $f "System.TeamProject"
@@ -313,7 +320,7 @@ jobs:
                 ClosedDate = Format-Date $closedDate; DemoDate = Format-Date $demoDate
                 BV_Total_Score = Get-FieldValue $f "Custom.BV_Total_Score"
                 Min_CT_InProgress = $minCT; TTD_Days = $ttdDays
-                T2FU_Days = Get-FieldValue $f "Custom.T2FU_Days"
+                T2FU_Days = $t2fuDays
               })
             }
           }
@@ -328,7 +335,11 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/manishwali/Experiment.git
           git add KPI_PBIs.csv KPI_Bugs.csv KPI_Features.csv KPI_Sprints.csv
-          git diff --staged --quiet || git commit -m "Refresh KPI data - $(date '+%Y-%m-%d %H:%M')"
+          git status
+          echo "Row counts:"
+          wc -l KPI_PBIs.csv KPI_Bugs.csv KPI_Features.csv KPI_Sprints.csv
+          git diff --staged --quiet && echo "NO CHANGES DETECTED - files identical to repo" || echo "CHANGES DETECTED - committing"
+          git diff --staged --quiet || git commit -m "Refresh KPI data ${{ github.event.inputs.start_date }} to ${{ github.event.inputs.end_date }} - $(date '+%Y-%m-%d %H:%M')"
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
