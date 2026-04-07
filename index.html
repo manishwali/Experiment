@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aurigo Engineering — KPI Dashboard</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -84,6 +85,59 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
          font-size: 12px; cursor: pointer; background: none; color: var(--text2); }
 .mpill.active { background: var(--navy); color: #fff; border-color: var(--navy); font-weight: 500; }
 .mpill:hover:not(.active) { background: var(--bg2); }
+
+.period-select {
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 5px 30px 5px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  background-color: var(--white);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px 6px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236B7280'/%3E%3C/svg%3E");
+  min-width: 120px;
+  outline: none;
+  font-family: inherit;
+}
+.period-select:focus { border-color: var(--navy); }
+
+/* ── ACCORDIONS ── */
+.kpi-accordion { margin-bottom: 12px; }
+.acc-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; background: #fff;
+  border: 0.5px solid var(--border); border-radius: var(--radius-lg);
+  cursor: pointer; user-select: none;
+  transition: border-color .15s;
+}
+.acc-header:hover { border-color: var(--navy); }
+.acc-header.open { border-radius: var(--radius-lg) var(--radius-lg) 0 0; border-bottom-color: var(--bg2); }
+.acc-title { display: flex; align-items: center; gap: 10px; }
+.acc-title span { font-size: 13px; font-weight: 500; color: var(--text); }
+.acc-badge { font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 10px; }
+.acc-actions { display: flex; align-items: center; gap: 8px; }
+.acc-chevron { font-size: 11px; color: var(--text2); transition: transform .2s; }
+.acc-header.open .acc-chevron { transform: rotate(180deg); }
+.acc-body {
+  display: none; padding: 14px 16px 16px;
+  background: #fff; border: 0.5px solid var(--border);
+  border-top: none; border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.acc-body.open { display: block; }
+.btn-pdf {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px; font-size: 11px; font-weight: 500;
+  border: 0.5px solid var(--border); border-radius: var(--radius);
+  background: none; color: var(--text2); cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.btn-pdf:hover { background: var(--bg2); border-color: var(--navy); color: var(--navy); }
 
 /* ── SECTION LABEL ── */
 .section-label { font-size: 11px; font-weight: 600; color: var(--text2);
@@ -247,17 +301,17 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   <!-- ═══════════════════════════════════ ORG TAB ═══════════════════════════ -->
   <div id="orgTab">
 
-    <!-- TIME CONTROLS -->
-    <div class="time-bar">
-      <span class="tl">View:</span>
-      <div class="seg">
-        <button id="btnMonth"   class="active" onclick="setMode('month')">Monthly</button>
-        <button id="btnQuarter" onclick="setMode('quarter')">Quarterly</button>
-      </div>
-      <div class="divider-v" id="pillDivider"></div>
-      <div class="mpills" id="monthPills" style="flex-wrap:wrap;gap:4px"></div>
-      <div class="mpills" id="quarterPills" style="display:none;flex-wrap:wrap;gap:4px"></div>
+  <!-- TIME CONTROLS -->
+  <div class="time-bar">
+    <span class="tl">View:</span>
+    <div class="seg">
+      <button id="btnMonth"   class="active" onclick="setMode('month')">Monthly</button>
+      <button id="btnQuarter" onclick="setMode('quarter')">Quarterly</button>
     </div>
+    <div class="divider-v" id="pillDivider"></div>
+    <select id="monthSelect" class="period-select" onchange="selectMonth(parseInt(this.value))"></select>
+    <select id="quarterSelect" class="period-select" onchange="selectQuarter(parseInt(this.value))" style="display:none"></select>
+  </div>
 
     <!-- MONTHLY VIEW -->
     <div id="monthlyView">
@@ -342,22 +396,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       </div><!-- /orgHealthBanner -->
 
       <p class="section-label" id="summaryLabel">KPI Summary — Mar-26</p>
-      <div class="kpi-grid" id="orgKpiCards"></div>
+      <div id="orgKpiAccordions"></div>
       <p class="section-label">Trends — <span id="orgTrendLabel"></span></p>
-      <div class="chart-grid" id="orgChartGrid">
-        <div class="chart-box"><h3>Feature velocity (SP)</h3><div class="chart-wrap"><canvas id="c-fv"></canvas></div></div>
-        <div class="chart-box"><h3>Discovery velocity (days — lower is better)</h3><div class="chart-wrap"><canvas id="c-dv"></canvas></div></div>
-        <div class="chart-box"><h3>Roadmap alignment (%)</h3><div class="chart-wrap"><canvas id="c-align"></canvas></div></div>
-        <div class="chart-box"><h3>Tech debt retirement (%)</h3><div class="chart-wrap"><canvas id="c-td"></canvas></div></div>
-        <div class="chart-box"><h3>Sprint readiness (%)</h3><div class="chart-wrap"><canvas id="c-sr"></canvas></div></div>
-        <div class="chart-box"><h3>Release quality (%)</h3><div class="chart-wrap"><canvas id="c-rq"></canvas></div></div>
-        <div class="chart-box"><h3>AI adoption (%)</h3><div class="chart-wrap"><canvas id="c-ai"></canvas></div></div>
-        <div class="chart-box"><h3>Product adoption (%)</h3><div class="chart-wrap"><canvas id="c-adopt"></canvas></div></div>
-        <div class="chart-box"><h3>AI productivity (SP/M tokens)</h3><div class="chart-wrap"><canvas id="c-aip"></canvas></div></div>
-        <div class="chart-box"><h3>Time to demo (days — lower is better)</h3><div class="chart-wrap"><canvas id="c-ttd"></canvas></div></div>
-        <div class="chart-box"><h3>Time to first usage (days — lower is better)</h3><div class="chart-wrap"><canvas id="c-t2fu"></canvas></div></div>
-        <div class="chart-box"><h3>Business value score (/5)</h3><div class="chart-wrap"><canvas id="c-bv"></canvas></div></div>
-      </div>
+      <div id="orgChartAccordions"></div>
     </div>
 
     <!-- QUARTERLY VIEW -->
@@ -439,18 +480,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       </div><!-- /orgHealthBannerQ -->
 
       <p class="section-label" id="qSummaryLabel">Quarter summary</p>
-      <div class="kpi-grid" id="qKpiCards"></div>
-      <p class="section-label">Quarter-on-quarter trends (all KPIs)</p>
-      <div class="chart-grid" id="qocChartGrid">
-        <div class="chart-box"><h3>Feature velocity (SP)</h3><div class="chart-wrap"><canvas id="qc-fv"></canvas></div></div>
-        <div class="chart-box"><h3>Discovery velocity (days)</h3><div class="chart-wrap"><canvas id="qc-dv"></canvas></div></div>
-        <div class="chart-box"><h3>Roadmap alignment (%)</h3><div class="chart-wrap"><canvas id="qc-align"></canvas></div></div>
-        <div class="chart-box"><h3>Tech debt (%)</h3><div class="chart-wrap"><canvas id="qc-td"></canvas></div></div>
-        <div class="chart-box"><h3>Release quality (%)</h3><div class="chart-wrap"><canvas id="qc-rq"></canvas></div></div>
-        <div class="chart-box"><h3>Sprint readiness (%)</h3><div class="chart-wrap"><canvas id="qc-sr"></canvas></div></div>
-        <div class="chart-box"><h3>AI adoption (%)</h3><div class="chart-wrap"><canvas id="qc-ai"></canvas></div></div>
-        <div class="chart-box"><h3>Time to demo (days)</h3><div class="chart-wrap"><canvas id="qc-ttd"></canvas></div></div>
-      </div>
+      <div id="qKpiAccordions"></div>
       <p class="section-label" id="qScorecardLabel">KPI scorecard</p>
       <div class="scorecard-wrap">
         <table>
@@ -481,14 +511,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
           <h2 id="pdName" style="font-size:20px;font-weight:500;color:var(--text)"></h2>
           <span id="pdScoreBadge" class="chip" style="font-size:12px;padding:4px 12px;"></span>
         </div>
-        <!-- Mode toggle -->
+        <!-- Mode toggle + dropdowns -->
         <div style="display:flex;align-items:center;gap:8px;">
           <div class="seg">
             <button id="pdBtnMonth" class="active" onclick="setPodMode('month')">Monthly</button>
             <button id="pdBtnQuarter" onclick="setPodMode('quarter')">Quarterly</button>
           </div>
-          <div class="mpills" id="pdMonthPills" style="flex-wrap:wrap;gap:4px"></div>
-          <div class="mpills" id="pdQuarterPills" style="display:none;flex-wrap:wrap;gap:4px"></div>
+          <select id="pdMonthSelect" class="period-select" onchange="pdSelectMonth(parseInt(this.value))"></select>
+          <select id="pdQuarterSelect" class="period-select" onchange="pdSelectQuarter(parseInt(this.value))" style="display:none"></select>
         </div>
       </div>
 
@@ -544,13 +574,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         <div id="pdInsights"></div>
       </div>
 
-      <!-- KPI SNAPSHOT CARDS -->
-      <p class="section-label" id="pdKpiLabel">KPI Snapshot — Mar-26</p>
-      <div class="pd-kpi-grid" id="pdKpiCards"></div>
-
-      <!-- TREND CHARTS -->
-      <p class="section-label" style="margin-top:16px">Monthly Trends — <span id="pdTrendLabel"></span></p>
-      <div class="chart-grid" id="pdCharts"></div>
+      <!-- KPI SNAPSHOT + TREND CHARTS as accordions -->
+      <p class="section-label" id="pdKpiLabel">KPI Snapshot</p>
+      <div id="pdKpiCards"></div>
+      <div id="pdCharts"></div>
 
     </div>
 
@@ -658,18 +685,24 @@ const POD_NAMES = Object.values(PROJECTS);
 const C = { blue:'#185fa5', amber:'#854f0b', green:'#059669', red:'#DC2626', gray:'#888780' };
 
 const KPI_META = [
-  {key:'fv',     label:'Feature Velocity',    unit:' SP',  dir:'up',   tgt:800,    tgtLabel:'> 800 SP'},
-  {key:'dv',     label:'Discovery Velocity',  unit:'d',    dir:'down', tgt:60,     tgtLabel:'< 60d'},
-  {key:'align',  label:'Roadmap Alignment',   unit:'%',    dir:'up',   tgt:80,     tgtLabel:'≥ 80%'},
-  {key:'td',     label:'Tech Debt',           unit:'%',    dir:'range',tgt:[20,30],tgtLabel:'20–30%'},
-  {key:'rq',     label:'Release Quality',     unit:'%',    dir:'up',   tgt:95,     tgtLabel:'≥ 95%'},
-  {key:'sr',     label:'Sprint Readiness',    unit:'%',    dir:'up',   tgt:80,     tgtLabel:'≥ 80%'},
-  {key:'aiAdopt',label:'AI Adoption',         unit:'%',    dir:'up',   tgt:90,     tgtLabel:'≥ 90%'},
-  {key:'aiProd', label:'AI Productivity',     unit:' SP/M',dir:'trend',tgt:null,   tgtLabel:'Trend ↑'},
-  {key:'adopt',  label:'Product Adoption',     unit:'%',    dir:'up',   tgt:80,     tgtLabel:'≥ 80%'},
-  {key:'ttd',    label:'Time to Demo',         unit:'d',    dir:'down', tgt:90,     tgtLabel:'< 90d'},
-  {key:'bv',     label:'Business Value Score', unit:'/5',   dir:'up',   tgt:3.5,    tgtLabel:'≥ 3.5/5'},
-  {key:'t2fu',   label:'Time to First Usage',  unit:'d',    dir:'down', tgt:30,     tgtLabel:'< 30d'},
+  {key:'ttd',    label:'Time to Demo',         unit:'d',    dir:'down', tgt:90,     tgtLabel:'< 90d',      group:'corporate'},
+  {key:'adopt',  label:'Product Adoption',      unit:'%',    dir:'up',   tgt:80,     tgtLabel:'≥ 80%',      group:'corporate'},
+  {key:'aiAdopt',label:'AI Adoption',           unit:'%',    dir:'up',   tgt:90,     tgtLabel:'≥ 90%',      group:'corporate'},
+  {key:'dv',     label:'Discovery Velocity',    unit:'d',    dir:'down', tgt:60,     tgtLabel:'< 60d',      group:'overall'},
+  {key:'sr',     label:'Sprint Readiness',      unit:'%',    dir:'up',   tgt:80,     tgtLabel:'≥ 80%',      group:'overall'},
+  {key:'fv',     label:'Feature Velocity',      unit:' SP',  dir:'up',   tgt:800,    tgtLabel:'> 800 SP',   group:'overall'},
+  {key:'align',  label:'Roadmap Alignment',     unit:'%',    dir:'up',   tgt:80,     tgtLabel:'≥ 80%',      group:'overall'},
+  {key:'t2fu',   label:'Time to First Usage',   unit:'d',    dir:'down', tgt:30,     tgtLabel:'< 30d',      group:'overall'},
+  {key:'bv',     label:'Business Value Score',  unit:'/5',   dir:'up',   tgt:3.5,    tgtLabel:'≥ 3.5/5',   group:'overall'},
+  {key:'aiProd', label:'AI Productivity',       unit:' SP/M',dir:'trend',tgt:null,   tgtLabel:'Trend ↑',   group:'engineering'},
+  {key:'rq',     label:'Release Quality',       unit:'%',    dir:'up',   tgt:95,     tgtLabel:'≥ 95%',      group:'engineering'},
+  {key:'td',     label:'Tech Debt',             unit:'%',    dir:'range',tgt:[20,30],tgtLabel:'20–30%',    group:'engineering'},
+];
+
+const KPI_GROUPS = [
+  { key:'corporate',   label:'Corporate KPIs',   color:'#185fa5', bg:'#E6F1FB', keys:['ttd','adopt','aiAdopt'] },
+  { key:'overall',     label:'Overall KPIs',      color:'#059669', bg:'#D1FAE5', keys:['dv','sr','fv','align','t2fu','bv'] },
+  { key:'engineering', label:'Engineering KPIs',  color:'#854f0b', bg:'#FEF3C7', keys:['aiProd','rq','td'] },
 ];
 
 // Dynamic pod insights — generated from live data, not hardcoded
@@ -771,7 +804,10 @@ function parseCSV(text) {
 const SP_HOST   = 'https://aurigo.sharepoint.com';
 const SP_FOLDER = '/sites/ProductManagement/KPI Dashboard';
 
-// GitHub raw URL base — CSVs live in the repo root
+// GitHub constants — defined here so readCSV can use them
+const GH_OWNER    = 'manishwali';
+const GH_REPO     = 'Experiment';
+const GH_WORKFLOW = 'refresh.yml';
 const GH_RAW_BASE = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/main`;
 
 function spFileUrl(filename) {
@@ -829,6 +865,10 @@ async function loadData() {
 
     calculateKPIs(pbis, bugs, features, sprints);
     state.loaded = true;
+    initPills();  // reinit dropdowns now ACTIVE_MONTHS is correct
+    state.monthIdx = MONTHS.indexOf(ACTIVE_MONTHS[ACTIVE_MONTHS.length - 1]);
+    const ms = document.getElementById('monthSelect');
+    if (ms) ms.value = state.monthIdx;
     setBanner('success', `Dashboard updated from ${src}. ${pbis.length} PBIs · ${bugs.length} bugs · ${features.length} features · ${sprints.length} sprints.`);
     document.getElementById('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
     renderAll();
@@ -1306,79 +1346,239 @@ function renderOrgHealth(suffix) {
 }
 
 
+// ═══════════════════════════════════════════════════════════════════════
+// ACCORDION HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+function toggleAcc(id) {
+  const header = document.getElementById('acc-h-'+id);
+  const body   = document.getElementById('acc-b-'+id);
+  if (!header || !body) return;
+  header.classList.toggle('open');
+  body.classList.toggle('open');
+}
+
+async function downloadAccPDF(id, label) {
+  const body = document.getElementById('acc-b-'+id);
+  if (!body || typeof html2canvas === 'undefined') {
+    alert('PDF download requires html2canvas — check your internet connection.');
+    return;
+  }
+  const btn = event.currentTarget;
+  const orig = btn.innerHTML;
+  btn.innerHTML = '⏳ Capturing...';
+  btn.disabled = true;
+
+  const wasOpen = body.classList.contains('open');
+  if (!wasOpen) { body.classList.add('open'); await new Promise(r=>setTimeout(r,200)); }
+
+  try {
+    const canvas = await html2canvas(body, { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false });
+    const periodLabel = state.mode === 'quarter'
+      ? QUARTER_KEYS[state.quarterIdx]
+      : MONTHS[state.monthIdx];
+    const link = document.createElement('a');
+    link.download = `${label.replace(/\s+/g,'-')}-${periodLabel}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } catch(e) { alert('Could not capture: ' + e.message); }
+
+  if (!wasOpen) body.classList.remove('open');
+  btn.innerHTML = orig;
+  btn.disabled = false;
+}
+
+function buildAccordion(groupKey, label, color, bg, cardsHtml, chartsHtml, prefix) {
+  const id = prefix + '-' + groupKey;
+  return `
+  <div class="kpi-accordion">
+    <div class="acc-header open" id="acc-h-${id}" onclick="toggleAcc('${id}')">
+      <div class="acc-title">
+        <span style="width:10px;height:10px;border-radius:50%;background:${color};display:inline-block;flex-shrink:0"></span>
+        <span>${label}</span>
+      </div>
+      <div class="acc-actions">
+        <button class="btn-pdf" onclick="event.stopPropagation();downloadAccPDF('${id}','${label}')">
+          ⬇ PDF
+        </button>
+        <span class="acc-chevron">▼</span>
+      </div>
+    </div>
+    <div class="acc-body open" id="acc-b-${id}">
+      <div class="kpi-grid" style="margin-bottom:${chartsHtml?'16px':'0'}">${cardsHtml}</div>
+      ${chartsHtml ? `<div class="chart-grid">${chartsHtml}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function renderOrgAccordions(mi, prevMi, o, prefix) {
+  const chartKeyMap = {
+    ttd:'c-ttd', adopt:'c-adopt', aiAdopt:'c-ai',
+    dv:'c-dv', sr:'c-sr', fv:'c-fv', align:'c-align', t2fu:'c-t2fu', bv:'c-bv',
+    aiProd:'c-aip', rq:'c-rq', td:'c-td'
+  };
+  const chartLabelMap = {
+    ttd:'Time to demo (d)', adopt:'Product adoption (%)', aiAdopt:'AI adoption (%)',
+    dv:'Discovery velocity (d)', sr:'Sprint readiness (%)', fv:'Feature velocity (SP)',
+    align:'Roadmap alignment (%)', t2fu:'Time to first usage (d)', bv:'Business value (/5)',
+    aiProd:'AI productivity (SP/M)', rq:'Release quality (%)', td:'Tech debt (%)'
+  };
+
+  let html = '';
+  KPI_GROUPS.forEach(g => {
+    const kpis = KPI_META.filter(k => g.keys.includes(k.key));
+    const cardsHtml = kpis.map(k => {
+      const val  = o[k.key+'_'+mi];
+      const prev = prevMi !== null ? o[k.key+'_'+prevMi] : null;
+      return buildKpiCard(k, val, prev, mi);
+    }).join('');
+    const chartsHtml = kpis.map(k => {
+      const cid = chartKeyMap[k.key];
+      if (!cid) return '';
+      return `<div class="chart-box"><h3>${chartLabelMap[k.key]}</h3><div class="chart-wrap"><canvas id="${cid}"></canvas></div></div>`;
+    }).join('');
+    html += buildAccordion(g.key, g.label, g.color, g.bg, cardsHtml, chartsHtml, prefix);
+  });
+  return html;
+}
+
+function renderPdKpiAccordions(pd, effectiveMi, isQ, qMonthIdxs, prefix) {
+  let html = '';
+  KPI_GROUPS.forEach(g => {
+    const kpis = KPI_META.filter(k => g.keys.includes(k.key));
+    const cardsHtml = kpis.map(k => {
+      let val, prev;
+      if (isQ) {
+        const vals = qMonthIdxs.map(i=>pd[k.key+'_'+i]).filter(v=>v!==null&&v!==undefined);
+        val = vals.length>0 ? +(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : null;
+      } else {
+        val  = pd[k.key+'_'+effectiveMi];
+        prev = effectiveMi>0 ? pd[k.key+'_'+(effectiveMi-1)] : null;
+      }
+      let statusClass='chip-b', statusLabel='N/A';
+      if (val!==null&&val!==undefined) {
+        let ok=false,warn=false;
+        if (k.dir==='up')    { ok=val>=k.tgt; warn=val>=k.tgt*0.85; }
+        if (k.dir==='down')  { ok=val<=k.tgt; warn=val<=k.tgt*1.2; }
+        if (k.dir==='range') { ok=val>=k.tgt[0]&&val<=k.tgt[1]; warn=val>=k.tgt[0]*.8&&val<=k.tgt[1]*1.3; }
+        if (k.dir==='trend') { ok=true; }
+        statusClass = ok?'chip-g':warn?'chip-a':'chip-r';
+        statusLabel  = ok?'On track':warn?'Watch':'Off track';
+      }
+      let sub='', subClass='flat';
+      if (!isQ && prev!==null&&prev!==undefined&&val!==null&&val!==undefined) {
+        const diff = +(val-prev).toFixed(1);
+        sub = `${diff>0?'+':''}${diff}${k.unit} vs prev`;
+        subClass = k.dir==='up'?(diff>0?'up':'down'):k.dir==='down'?(diff<0?'up':'down'):'flat';
+      }
+      return `<div class="pd-kpi-card">
+        <div class="pk-label">${k.label}</div>
+        <div class="pk-val" style="font-size:18px;font-weight:500">${val!==null&&val!==undefined?val+k.unit:'N/A'}</div>
+        ${sub?`<div class="pk-trend ${subClass}" style="font-size:11px">${sub}</div>`:''}
+        <div style="margin-top:4px"><span class="chip ${statusClass}" style="font-size:10px">${statusLabel}</span></div>
+      </div>`;
+    }).join('');
+    const chartsHtml = kpis.map(k =>
+      `<div class="chart-box"><h3>${k.label}${k.unit.trim()?' ('+k.unit.trim()+')':''}</h3>
+       <div class="chart-wrap"><canvas id="${prefix}-pd-${k.key}"></canvas></div></div>`
+    ).join('');
+    html += buildAccordion(g.key, g.label, g.color, g.bg, cardsHtml, chartsHtml, prefix);
+  });
+  return html;
+}
+
 function renderMonthlyOrg() {
   const mi = state.monthIdx;
   const o = state.orgData;
   const prevMi = mi > 0 ? mi-1 : null;
 
   renderOrgHealth('');
-
   document.getElementById('summaryLabel').textContent = 'Summary — ' + MONTHS[mi];
 
-  // Update trend label dynamically
   const orgTrendEl = document.getElementById('orgTrendLabel');
   if (orgTrendEl && ACTIVE_MONTHS.length > 0) {
     orgTrendEl.textContent = `${ACTIVE_MONTHS[0]} → ${ACTIVE_MONTHS[ACTIVE_MONTHS.length-1]}`;
   }
 
-  const cards = KPI_META.map(k => {
-    const val = o[k.key+'_'+mi];
-    const prev = prevMi !== null ? o[k.key+'_'+prevMi] : null;
-    return buildKpiCard(k, val, prev, mi);
-  }).join('');
-  document.getElementById('orgKpiCards').innerHTML = cards;
+  // Render accordion KPI cards + charts grouped by category
+  const accEl = document.getElementById('orgKpiAccordions');
+  const chartEl = document.getElementById('orgChartAccordions');
+  if (accEl) accEl.innerHTML = renderOrgAccordions(mi, prevMi, o, 'org');
+  if (chartEl) chartEl.innerHTML = ''; // charts now inside accordions
 
   destroyCharts(orgCharts);
   orgCharts = {};
   setTimeout(() => {
-    orgCharts.fv    = makeChart('c-fv',  getArr(o,'fv'),     'FV',    C.blue,  ' SP');
-    orgCharts.dv    = makeChart('c-dv',  getArr(o,'dv'),     'DV',    C.amber, 'd');
-    orgCharts.align = makeChart('c-align',getArr(o,'align'), 'Align', C.green, '%');
-    orgCharts.td    = makeChart('c-td',  getArr(o,'td'),     'TD',    C.amber, '%');
-    orgCharts.sr    = makeChart('c-sr',  getArr(o,'sr'),     'SR',    C.red,   '%');
-    orgCharts.rq    = makeChart('c-rq',  getArr(o,'rq'),     'RQ',    C.green, '%');
-    orgCharts.ai    = makeChart('c-ai',  getArr(o,'aiAdopt'),'AI',    C.blue,  '%');
-    orgCharts.aip   = makeChart('c-aip',  getArr(o,'aiProd'), 'AIProd',C.blue,  ' SP/M');
-    orgCharts.adopt = makeChart('c-adopt',getArr(o,'adopt'),  'Adopt', C.green, '%');
-    orgCharts.ttd   = makeChart('c-ttd',  getArr(o,'ttd'),    'TTD',   C.amber, 'd');
-    orgCharts.t2fu  = makeChart('c-t2fu', getArr(o,'t2fu'),   'T2FU',  C.green, 'd');
-    orgCharts.bv    = makeChart('c-bv',   getArr(o,'bv'),     'BV',    C.green, '/5');
-  }, 50);
+    const chartKeyMap = { ttd:'c-ttd', adopt:'c-adopt', aiAdopt:'c-ai', dv:'c-dv', sr:'c-sr', fv:'c-fv', align:'c-align', t2fu:'c-t2fu', bv:'c-bv', aiProd:'c-aip', rq:'c-rq', td:'c-td' };
+    const colMap = { ttd:C.amber, adopt:C.green, aiAdopt:C.blue, dv:C.amber, sr:C.red, fv:C.blue, align:C.green, t2fu:C.amber, bv:C.green, aiProd:C.blue, rq:C.green, td:C.amber };
+    KPI_META.forEach(k => {
+      const cid = chartKeyMap[k.key];
+      if (cid) orgCharts[k.key] = makeChart(cid, getArr(o,k.key), k.label, colMap[k.key]||C.blue, k.unit);
+    });
+  }, 80);
 }
 
 function renderQuarterlyOrg() {
-  // Defer health banner render to ensure quarterly view is visible (chart canvas needs dimensions)
   setTimeout(() => renderOrgHealth('Q'), 30);
   const o = state.orgData;
   const qi = state.quarterIdx;
   const qKey = QUARTER_KEYS[qi];
-  const qMonthIdxs = QUARTERS[qKey];  // e.g. [0,1,2] for Q1
+  const qMonthIdxs = QUARTERS[qKey];
   const qMonthLabels = qMonthIdxs.map(i => MONTHS[i]);
 
-  // QoQ summary cards — avg of the selected quarter's months
-  document.getElementById('qSummaryLabel').textContent = `${qKey} — quarter summary`;
-  document.getElementById('qScorecardLabel').textContent = `KPI scorecard — ${qKey}`;
+  document.getElementById('qSummaryLabel').textContent = `${qKey} — Quarter Summary`;
+  document.getElementById('qScorecardLabel').textContent = `KPI Scorecard — ${qKey}`;
 
-  const cards = KPI_META.map(k => {
-    const arr = qMonthIdxs.map(i => o[k.key+'_'+i]);
-    const valid = arr.filter(x => x !== null && x !== undefined);
-    const avg = valid.length ? +(valid.reduce((a,b)=>a+b,0)/valid.length).toFixed(1) : null;
-    // sub label: show quarter range
-    const sub = valid.length ? `${qKey} avg (${valid.length} months)` : 'No data';
-    return `<div class="kpi-card">
-      <div class="kc-label">${k.label}</div>
-      <div class="kc-value">${avg !== null ? avg : 'N/A'}<span class="kc-unit">${avg !== null ? k.unit : ''}</span></div>
-      <div class="kc-sub flat">${sub}</div>
-      <div>${statusChip(avg, k)}</div>
-    </div>`;
-  }).join('');
-  document.getElementById('qKpiCards').innerHTML = cards;
+  // Quarter avg helper
+  function qAvg(key) {
+    return QUARTER_KEYS.map(qk => {
+      const idxs = QUARTERS[qk];
+      const vals = idxs.map(i => o[key+'_'+i]).filter(v => v !== null && v !== undefined);
+      return vals.length ? +(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : null;
+    });
+  }
 
-  // Scorecard table — columns = months of selected quarter
+  // Build accordions — cards show Q avg, charts show QoQ trend
+  const chartLabelMap = {
+    ttd:'Time to demo (d)', adopt:'Product adoption (%)', aiAdopt:'AI adoption (%)',
+    dv:'Discovery velocity (d)', sr:'Sprint readiness (%)', fv:'Feature velocity (SP)',
+    align:'Roadmap alignment (%)', t2fu:'Time to first usage (d)', bv:'Business value (/5)',
+    aiProd:'AI productivity (SP/M)', rq:'Release quality (%)', td:'Tech debt (%)'
+  };
+
+  let accHtml = '';
+  KPI_GROUPS.forEach(g => {
+    const kpis = KPI_META.filter(k => g.keys.includes(k.key));
+
+    // Cards: Q avg value
+    const cardsHtml = kpis.map(k => {
+      const arr = qMonthIdxs.map(i => o[k.key+'_'+i]);
+      const valid = arr.filter(x => x !== null && x !== undefined);
+      const avg = valid.length ? +(valid.reduce((a,b)=>a+b,0)/valid.length).toFixed(1) : null;
+      const sub = valid.length ? `${qKey} avg` : 'No data';
+      return `<div class="kpi-card">
+        <div class="kc-label">${k.label}</div>
+        <div class="kc-value">${avg !== null ? avg : 'N/A'}<span class="kc-unit">${avg !== null ? k.unit : ''}</span></div>
+        <div class="kc-sub flat">${sub}</div>
+        <div>${statusChip(avg, k)}</div>
+      </div>`;
+    }).join('');
+
+    // Charts: QoQ trend
+    const chartsHtml = kpis.map(k => {
+      const cid = `qc-${g.key}-${k.key}`;
+      return `<div class="chart-box"><h3>${chartLabelMap[k.key]}</h3><div class="chart-wrap"><canvas id="${cid}"></canvas></div></div>`;
+    }).join('');
+
+    accHtml += buildAccordion(g.key, g.label, g.color, g.bg, cardsHtml, chartsHtml, 'qorg');
+  });
+
+  const accEl = document.getElementById('qKpiAccordions');
+  if (accEl) accEl.innerHTML = accHtml;
+
+  // Scorecard table — month columns within selected quarter
   const headCols = qMonthLabels.map(m => `<th>${m}</th>`).join('');
   document.getElementById('qTableHead').innerHTML =
     `<tr><th>KPI</th>${headCols}<th>Trend</th><th>Target</th><th>Status</th></tr>`;
-
   const tbody = KPI_META.map(k => {
     const arr = qMonthIdxs.map(i => o[k.key+'_'+i]);
     const fmt = v => v !== null && v !== undefined ? v+k.unit : 'N/A';
@@ -1395,29 +1595,20 @@ function renderQuarterlyOrg() {
   }).join('');
   document.getElementById('qTableBody').innerHTML = tbody;
 
-  // QoQ trend charts — X axis = quarters, one point per quarter
-  // Build quarter-aggregated data for all 4 quarters
-  const qLabels = QUARTER_KEYS;
-  function qAvg(key) {
-    return QUARTER_KEYS.map(qk => {
-      const idxs = QUARTERS[qk];
-      const vals = idxs.map(i => o[key+'_'+i]).filter(v => v !== null && v !== undefined);
-      return vals.length ? +(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : null;
-    });
-  }
-
+  // Render QoQ charts
   destroyCharts(orgCharts);
   orgCharts = {};
+  const colMap = { ttd:C.amber, adopt:C.green, aiAdopt:C.blue, dv:C.amber, sr:C.red, fv:C.blue, align:C.green, t2fu:C.amber, bv:C.green, aiProd:C.blue, rq:C.green, td:C.amber };
   setTimeout(() => {
-    orgCharts.fv    = makeChartQ('qc-fv',    qLabels, qAvg('fv'),    'FV',    C.blue,  ' SP');
-    orgCharts.dv    = makeChartQ('qc-dv',    qLabels, qAvg('dv'),    'DV',    C.amber, 'd');
-    orgCharts.align = makeChartQ('qc-align', qLabels, qAvg('align'), 'Align', C.green, '%');
-    orgCharts.td    = makeChartQ('qc-td',    qLabels, qAvg('td'),    'TD',    C.amber, '%');
-    orgCharts.rq    = makeChartQ('qc-rq',    qLabels, qAvg('rq'),    'RQ',    C.green, '%');
-    orgCharts.sr    = makeChartQ('qc-sr',    qLabels, qAvg('sr'),    'SR',    C.red,   '%');
-    orgCharts.ai    = makeChartQ('qc-ai',    qLabels, qAvg('aiAdopt'),'AI',   C.blue,  '%');
-    orgCharts.ttd   = makeChartQ('qc-ttd',   qLabels, qAvg('ttd'),   'TTD',   C.amber, 'd');
-  }, 50);
+    KPI_GROUPS.forEach(g => {
+      KPI_META.filter(k => g.keys.includes(k.key)).forEach(k => {
+        const cid = `qc-${g.key}-${k.key}`;
+        const col = colMap[k.key] || C.blue;
+        const ch = makeChartQ(cid, QUARTER_KEYS, qAvg(k.key), k.label, col, k.unit);
+        if (ch) orgCharts[k.key] = ch;
+      });
+    });
+  }, 80);
 }
 
 function buildKpiCard(k, val, prev, mi, isQAvg) {
@@ -1514,56 +1705,46 @@ function setPodMode(m) {
   pdState.mode = m;
   document.getElementById('pdBtnMonth').classList.toggle('active', m==='month');
   document.getElementById('pdBtnQuarter').classList.toggle('active', m==='quarter');
-  document.getElementById('pdMonthPills').style.display   = m==='month'  ? 'flex' : 'none';
-  document.getElementById('pdQuarterPills').style.display = m==='quarter'? 'flex' : 'none';
+  document.getElementById('pdMonthSelect').style.display   = m==='month'   ? 'block' : 'none';
+  document.getElementById('pdQuarterSelect').style.display = m==='quarter' ? 'block' : 'none';
   renderPodDetail();
 }
 
 function initPdPills() {
-  // Month pills
-  const mp = document.getElementById('pdMonthPills');
-  mp.innerHTML = MONTHS.slice(0, ACTIVE_MONTHS.length + 3).map((m, i) => {
+  const lastActiveIdx = ACTIVE_MONTHS.length > 0
+    ? MONTHS.indexOf(ACTIVE_MONTHS[ACTIVE_MONTHS.length - 1])
+    : 2;
+
+  // Month dropdown
+  const ms = document.getElementById('pdMonthSelect');
+  ms.innerHTML = MONTHS.slice(0, lastActiveIdx + 1).map((m, i) => {
     const hasData = ACTIVE_MONTHS.includes(m);
-    const active  = i === pdState.monthIdx;
-    return `<button onclick="pdSelectMonth(${i})" style="
-      border:0.5px solid ${active?'var(--navy)':'var(--border)'};
-      border-radius:20px;padding:4px 12px;font-size:12px;cursor:pointer;
-      background:${active?'var(--navy)':'none'};color:${active?'#fff':'var(--text2)'};
-      opacity:${hasData?1:0.4};">${m}</button>`;
+    return `<option value="${i}" ${i === pdState.monthIdx ? 'selected' : ''} ${!hasData ? 'style="color:var(--text3)"' : ''}>${m}${hasData ? '' : ' (no data)'}</option>`;
   }).join('');
 
-  // Quarter pills
-  const qp = document.getElementById('pdQuarterPills');
-  qp.innerHTML = QUARTER_KEYS.map((q, i) => {
+  // Quarter dropdown
+  const qs = document.getElementById('pdQuarterSelect');
+  qs.innerHTML = QUARTER_KEYS.map((q, i) => {
     const hasData = QUARTERS[q].some(mi => ACTIVE_MONTHS.includes(MONTHS[mi]));
-    const active  = i === pdState.quarterIdx;
-    return `<button onclick="pdSelectQuarter(${i})" style="
-      border:0.5px solid ${active?'var(--navy)':'var(--border)'};
-      border-radius:20px;padding:4px 12px;font-size:12px;cursor:pointer;
-      background:${active?'var(--navy)':'none'};color:${active?'#fff':'var(--text2)'};
-      opacity:${hasData?1:0.4};">${q}</button>`;
+    return `<option value="${i}" ${i === pdState.quarterIdx ? 'selected' : ''} ${!hasData ? 'style="color:var(--text3)"' : ''}>${q}${hasData ? '' : ' (no data)'}</option>`;
   }).join('');
+
+  // Show correct one
+  ms.style.display = pdState.mode === 'month'   ? 'block' : 'none';
+  qs.style.display = pdState.mode === 'quarter' ? 'block' : 'none';
 }
 
 function pdSelectMonth(idx) {
   pdState.monthIdx = idx;
-  document.querySelectorAll('#pdMonthPills button').forEach((b,i) => {
-    const active = i===idx;
-    b.style.background = active?'var(--navy)':'none';
-    b.style.color = active?'#fff':'var(--text2)';
-    b.style.borderColor = active?'var(--navy)':'var(--border)';
-  });
+  const sel = document.getElementById('pdMonthSelect');
+  if (sel) sel.value = idx;
   renderPodDetail();
 }
 
 function pdSelectQuarter(idx) {
   pdState.quarterIdx = idx;
-  document.querySelectorAll('#pdQuarterPills button').forEach((b,i) => {
-    const active = i===idx;
-    b.style.background = active?'var(--navy)':'none';
-    b.style.color = active?'#fff':'var(--text2)';
-    b.style.borderColor = active?'var(--navy)':'var(--border)';
-  });
+  const sel = document.getElementById('pdQuarterSelect');
+  if (sel) sel.value = idx;
   renderPodDetail();
 }
 
@@ -1699,64 +1880,26 @@ function renderPodDetail() {
     ? ins.map(i=>`<div class="insight-item"><span class="dot dot-${i.t}"></span><span>${i.m}</span></div>`).join('')
     : '<div class="insight-item"><span class="dot dot-a"></span><span>No data available yet.</span></div>';
 
-  // ── KPI snapshot cards ────────────────────────────────────────
+  // ── KPI snapshot + trend charts as accordions ─────────────────
   const periodLabel = isQ ? QUARTER_KEYS[pdState.quarterIdx] : MONTHS[effectiveMi];
   document.getElementById('pdKpiLabel').textContent = `KPI Snapshot — ${periodLabel}`;
 
-  document.getElementById('pdKpiCards').innerHTML = KPI_META.map(k => {
-    let val, prev;
-    if (isQ) {
-      const vals = qMonthIdxs.map(i=>pd[k.key+'_'+i]).filter(v=>v!==null&&v!==undefined);
-      val = vals.length>0 ? +(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : null;
-    } else {
-      val  = pd[k.key+'_'+effectiveMi];
-      prev = effectiveMi>0 ? pd[k.key+'_'+(effectiveMi-1)] : null;
-    }
-    let statusClass='chip-b', statusLabel='N/A';
-    if (val!==null&&val!==undefined) {
-      let ok=false,warn=false;
-      if (k.dir==='up')    { ok=val>=k.tgt; warn=val>=k.tgt*0.85; }
-      if (k.dir==='down')  { ok=val<=k.tgt; warn=val<=k.tgt*1.2; }
-      if (k.dir==='range') { ok=val>=k.tgt[0]&&val<=k.tgt[1]; warn=val>=k.tgt[0]*.8&&val<=k.tgt[1]*1.3; }
-      if (k.dir==='trend') { ok=true; }
-      statusClass = ok?'chip-g':warn?'chip-a':'chip-r';
-      statusLabel  = ok?'On track':warn?'Watch':'Off track';
-    }
-    let sub='', subClass='flat';
-    if (!isQ && prev!==null&&prev!==undefined&&val!==null&&val!==undefined) {
-      const diff = +(val-prev).toFixed(1);
-      sub = `${diff>0?'+':''}${diff}${k.unit} vs prev`;
-      subClass = k.dir==='up'?(diff>0?'up':'down'):k.dir==='down'?(diff<0?'up':'down'):'flat';
-    }
-    return `<div class="pd-kpi-card">
-      <div class="pk-label">${k.label}</div>
-      <div class="pk-val" style="font-size:18px;font-weight:500">${val!==null&&val!==undefined?val+k.unit:'N/A'}</div>
-      ${sub?`<div class="pk-trend ${subClass}" style="font-size:11px">${sub}</div>`:''}
-      <div style="margin-top:4px"><span class="chip ${statusClass}" style="font-size:10px">${statusLabel}</span></div>
-    </div>`;
-  }).join('');
+  const podPrefix = pName.replace(/[^a-z0-9]/gi,'');
+  document.getElementById('pdKpiCards').innerHTML = renderPdKpiAccordions(pd, effectiveMi, isQ, qMonthIdxs, podPrefix);
+  document.getElementById('pdCharts').innerHTML = ''; // charts now inside accordions
 
   // ── Trend charts ──────────────────────────────────────────────
-  const trendLabel = ACTIVE_MONTHS.length > 0
-    ? `${ACTIVE_MONTHS[0]} → ${ACTIVE_MONTHS[ACTIVE_MONTHS.length-1]}`
-    : 'Jan-26 → Mar-26';
-  const pdTrendEl = document.getElementById('pdTrendLabel');
-  if (pdTrendEl) pdTrendEl.textContent = trendLabel;
   pdChartObjs.forEach(c => c && c.destroy());
   pdChartObjs = [];
-  document.getElementById('pdCharts').innerHTML = KPI_META.map(k =>
-    `<div class="chart-box"><h3>${k.label}${k.unit!==''?' ('+k.unit.trim()+')':''}</h3>
-     <div class="chart-wrap"><canvas id="pd-${k.key}"></canvas></div></div>`
-  ).join('');
-
   setTimeout(() => {
-    const colMap = { up:C.green, down:C.amber, range:C.amber, trend:C.blue };
+    const colMap = { ttd:C.amber, adopt:C.green, aiAdopt:C.blue, dv:C.amber, sr:C.red, fv:C.blue, align:C.green, t2fu:C.amber, bv:C.green, aiProd:C.blue, rq:C.green, td:C.amber };
     KPI_META.forEach(k => {
-      const col = k.key==='fv'?C.blue:k.key==='rq'||k.key==='align'?C.green:
-                  k.key==='dv'||k.key==='td'||k.key==='ttd'||k.key==='t2fu'?C.amber:C.blue;
-      pdChartObjs.push(makeChart('pd-'+k.key, getArr(pd,k.key), k.label, col, k.unit));
+      const cid = `${podPrefix}-pd-${k.key}`;
+      const col = colMap[k.key] || C.blue;
+      const ch = makeChart(cid, getArr(pd,k.key), k.label, col, k.unit);
+      if (ch) pdChartObjs.push(ch);
     });
-  }, 50);
+  }, 80);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1873,12 +2016,12 @@ function switchTab(t) {
 function setMode(m) {
   state.mode = m;
   const showMonth = m === 'month';
-  document.getElementById('btnMonth').classList.toggle('active',   showMonth);
+  document.getElementById('btnMonth').classList.toggle('active',    showMonth);
   document.getElementById('btnQuarter').classList.toggle('active', !showMonth);
-  document.getElementById('monthPills').style.display   = showMonth ? 'flex' : 'none';
-  document.getElementById('quarterPills').style.display = showMonth ? 'none' : 'flex';
-  document.getElementById('pillDivider').style.display  = 'block';
-  document.getElementById('monthlyView').style.display  = showMonth ? 'block' : 'none';
+  document.getElementById('monthSelect').style.display   = showMonth ? 'block' : 'none';
+  document.getElementById('quarterSelect').style.display = showMonth ? 'none'  : 'block';
+  document.getElementById('pillDivider').style.display   = 'block';
+  document.getElementById('monthlyView').style.display   = showMonth ? 'block' : 'none';
   const qv = document.getElementById('quarterlyView');
   qv.classList.remove('hidden');
   qv.style.display = showMonth ? 'none' : 'block';
@@ -1887,39 +2030,36 @@ function setMode(m) {
 
 function selectMonth(mi) {
   state.monthIdx = mi;
-  document.querySelectorAll('#monthPills .mpill').forEach((p,i) =>
-    p.classList.toggle('active', i === mi));
+  const sel = document.getElementById('monthSelect');
+  if (sel) sel.value = mi;
   if (state.loaded) { renderMonthlyOrg(); renderPodGrid(); }
 }
 
 function selectQuarter(qi) {
   state.quarterIdx = qi;
-  document.querySelectorAll('#quarterPills .mpill').forEach((p,i) =>
-    p.classList.toggle('active', i === qi));
+  const sel = document.getElementById('quarterSelect');
+  if (sel) sel.value = qi;
   if (state.loaded) renderQuarterlyOrg();
 }
 
 function initPills() {
-  // Month pills — all months up to 3 ahead of last active are shown
-  // Greyed = no data yet but still clickable (shows N/A gracefully)
-  const mp = document.getElementById('monthPills');
   const lastActiveIdx = ACTIVE_MONTHS.length > 0
     ? MONTHS.indexOf(ACTIVE_MONTHS[ACTIVE_MONTHS.length - 1])
     : 2;
-  mp.innerHTML = MONTHS.slice(0, lastActiveIdx + 4).map((m, i) => {
+  const showUpTo = Math.min(lastActiveIdx + 1, 11); // show up to latest active only
+
+  // Month dropdown
+  const ms = document.getElementById('monthSelect');
+  ms.innerHTML = MONTHS.slice(0, showUpTo + 1).map((m, i) => {
     const hasData = ACTIVE_MONTHS.includes(m);
-    const cls = 'mpill' + (i === state.monthIdx ? ' active' : '');
-    const style = hasData ? '' : 'opacity:0.45;';
-    return `<button class="${cls}" style="${style}" onclick="selectMonth(${i})">${m}</button>`;
+    return `<option value="${i}" ${i === state.monthIdx ? 'selected' : ''} ${!hasData ? 'style="color:var(--text3)"' : ''}>${m}${hasData ? '' : ' (no data)'}</option>`;
   }).join('');
 
-  // Quarter pills — always clickable
-  const qp = document.getElementById('quarterPills');
-  qp.innerHTML = QUARTER_KEYS.map((q, i) => {
+  // Quarter dropdown — always show all 4
+  const qs = document.getElementById('quarterSelect');
+  qs.innerHTML = QUARTER_KEYS.map((q, i) => {
     const hasData = QUARTERS[q].some(mi => ACTIVE_MONTHS.includes(MONTHS[mi]));
-    const cls = 'mpill' + (i === state.quarterIdx ? ' active' : '');
-    const style = hasData ? '' : 'opacity:0.45;';
-    return `<button class="${cls}" style="${style}" onclick="selectQuarter(${i})">${q}</button>`;
+    return `<option value="${i}" ${i === state.quarterIdx ? 'selected' : ''} ${!hasData ? 'style="color:var(--text3)"' : ''}>${q}${hasData ? '' : ' (no data)'}</option>`;
   }).join('');
 }
 
@@ -2353,10 +2493,6 @@ async function loadManualDataFromGitHub() {
 // ═══════════════════════════════════════════════════════════════════════
 // GITHUB ACTIONS - Trigger ADO data refresh
 // ═══════════════════════════════════════════════════════════════════════
-const GH_OWNER    = 'manishwali';
-const GH_REPO     = 'Experiment';
-const GH_WORKFLOW = 'refresh.yml';
-
 function getGHToken() {
   let token = sessionStorage.getItem('gh_token');
   if (!token) {
@@ -2444,16 +2580,20 @@ async function triggerADORefresh() {
 initManualInputs();
 loadSampleData();
 initPills();
+state.monthIdx = MONTHS.indexOf(ACTIVE_MONTHS[ACTIVE_MONTHS.length - 1]);
+const initMonthSel = document.getElementById('monthSelect');
+if (initMonthSel) initMonthSel.value = state.monthIdx;
 renderAll();
 
-// Load persisted manual inputs from GitHub then re-apply
-loadManualDataFromGitHub().then(loaded => {
-  if (loaded) {
-    applyManualData();
-    renderAll();
-    setBanner('info', 'Dashboard loaded with saved manual inputs from GitHub.');
-  }
-});
+// Then try to load live CSVs on top (works on GitHub Pages, fails silently locally)
+if (!window.location.protocol.startsWith('file')) {
+  loadData().catch(() => {});
+  loadManualDataFromGitHub().then(loaded => {
+    if (loaded) { applyManualData(); renderAll(); }
+  });
+} else {
+  setBanner('info', 'Running locally — showing static Q1 data. Deploy to GitHub Pages to load live CSVs.');
+}
 </script>
 </body>
 </html>
