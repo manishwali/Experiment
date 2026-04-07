@@ -1023,11 +1023,12 @@ function calculateKPIs(pbis, bugs, features, sprints) {
     state.podData[p].score = calcPodScore(state.podData[p]);
   });
 
-  // Compute ACTIVE_MONTHS — any month with real data (includes static Q1)
+  // Compute ACTIVE_MONTHS — any month with any non-null KPI value (includes static Q1 + live CSV months)
   ACTIVE_MONTHS = MONTHS.filter((m, mi) =>
-    (o['fv_'+mi] && o['fv_'+mi] > 0) ||
-    (o['rq_'+mi] && o['rq_'+mi] < 100) ||
-    (o['sr_'+mi] !== null && o['sr_'+mi] !== undefined)
+    KPI_META.some(k => {
+      const v = o[k.key+'_'+mi];
+      return v !== null && v !== undefined && v !== 0;
+    }) || mi < STATIC_MONTHS  // always include locked Q1 months
   );
   if (ACTIVE_MONTHS.length === 0) ACTIVE_MONTHS = ['Jan-26','Feb-26','Mar-26'];
 }
@@ -1430,15 +1431,30 @@ function buildKpiCard(k, val, prev, mi, isQAvg) {
 
 function renderPodGrid() {
   const mi = state.monthIdx;
+  const selectedMonth = MONTHS[mi];
+  const isStaticMonth = mi < STATIC_MONTHS;
+  const hasLiveData = ACTIVE_MONTHS.includes(selectedMonth) && !isStaticMonth;
+
   const html = POD_NAMES.map((pName, i) => {
     const pd = state.podData[pName] || {};
-    const score = pd.score || 0;
+    // Calculate score for the SELECTED month, not the pre-stored latest-month score
+    const score = calcPodHealthAt(pd, mi);
     const fv = pd['fv_'+mi]; const dv = pd['dv_'+mi];
     const align = pd['align_'+mi]; const sr = pd['sr_'+mi];
     const barColor = score>=75?C.green:score>=50?'#D97706':C.red;
     const sc = scClass(score);
+
+    // Data source badge — shows which month the score reflects and whether it's live or static
+    const badgeColor = isStaticMonth ? '#6B7280' : hasLiveData ? '#059669' : '#D97706';
+    const badgeBg    = isStaticMonth ? '#F1F5F9' : hasLiveData ? '#D1FAE5' : '#FEF3C7';
+    const badgeLabel = isStaticMonth ? `${selectedMonth} · Static` : hasLiveData ? `${selectedMonth} · Live` : `${selectedMonth} · Partial`;
+
     return `<div class="pod-card" onclick="showPodDetail('${pName}')">
-      <div class="pc-name">${pName}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div class="pc-name" style="margin-bottom:0">${pName}</div>
+        <span style="font-size:10px;font-weight:500;padding:2px 7px;border-radius:10px;
+          background:${badgeBg};color:${badgeColor};white-space:nowrap">${badgeLabel}</span>
+      </div>
       <div class="pc-score ${sc}">${score}%</div>
       <div class="pc-label ${sc}" style="font-size:11px;margin-bottom:6px">${scLabel(score)}</div>
       <div class="pc-bar"><div class="pc-bar-fill" style="width:${score}%;background:${barColor}"></div></div>
@@ -1854,22 +1870,26 @@ function selectQuarter(qi) {
 }
 
 function initPills() {
-  // Month pills — only show active months (have data)
+  // Month pills — all months up to 3 ahead of last active are shown
+  // Greyed = no data yet but still clickable (shows N/A gracefully)
   const mp = document.getElementById('monthPills');
-  mp.innerHTML = MONTHS.map((m, i) => {
+  const lastActiveIdx = ACTIVE_MONTHS.length > 0
+    ? MONTHS.indexOf(ACTIVE_MONTHS[ACTIVE_MONTHS.length - 1])
+    : 2;
+  mp.innerHTML = MONTHS.slice(0, lastActiveIdx + 4).map((m, i) => {
     const hasData = ACTIVE_MONTHS.includes(m);
-    const cls = 'mpill' + (i === state.monthIdx ? ' active' : '') + (hasData ? '' : ' disabled');
-    const style = hasData ? '' : 'opacity:0.4;cursor:default;';
-    return `<button class="${cls}" style="${style}" onclick="${hasData?'selectMonth('+i+')':''}">${m}</button>`;
+    const cls = 'mpill' + (i === state.monthIdx ? ' active' : '');
+    const style = hasData ? '' : 'opacity:0.45;';
+    return `<button class="${cls}" style="${style}" onclick="selectMonth(${i})">${m}</button>`;
   }).join('');
 
-  // Quarter pills
+  // Quarter pills — always clickable
   const qp = document.getElementById('quarterPills');
   qp.innerHTML = QUARTER_KEYS.map((q, i) => {
     const hasData = QUARTERS[q].some(mi => ACTIVE_MONTHS.includes(MONTHS[mi]));
-    const cls = 'mpill' + (i === state.quarterIdx ? ' active' : '') + (hasData ? '' : ' disabled');
-    const style = hasData ? '' : 'opacity:0.4;cursor:default;';
-    return `<button class="${cls}" style="${style}" onclick="${hasData?'selectQuarter('+i+')':''}">${q}</button>`;
+    const cls = 'mpill' + (i === state.quarterIdx ? ' active' : '');
+    const style = hasData ? '' : 'opacity:0.45;';
+    return `<button class="${cls}" style="${style}" onclick="selectQuarter(${i})">${q}</button>`;
   }).join('');
 }
 
