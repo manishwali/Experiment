@@ -766,34 +766,44 @@ function parseCSV(text) {
   });
 }
 
-// ── SharePoint configuration ──────────────────────────────────────────
-// Files live in: https://aurigo.sharepoint.com/sites/ProductManagement/KPI Dashboard/
+// ── Data source configuration ─────────────────────────────────────────
 const SP_HOST   = 'https://aurigo.sharepoint.com';
 const SP_FOLDER = '/sites/ProductManagement/KPI Dashboard';
 
-// Build SharePoint REST API URL for a file
+// GitHub raw URL base — CSVs live in the repo root
+const GH_RAW_BASE = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/main`;
+
 function spFileUrl(filename) {
   const rel = `${SP_FOLDER}/${filename}`;
   return `${SP_HOST}${SP_FOLDER}/_api/web/GetFileByServerRelativeUrl('${rel}')/$value`;
 }
 
-// Detect if we're running inside SharePoint (hosted) or local
 function isSharePoint() {
   return window.location.hostname.includes('sharepoint.com');
 }
 
+function isGitHubPages() {
+  return window.location.hostname.includes('github.io');
+}
+
 async function readCSV(filename) {
-  // SharePoint: use REST API with credentials included (uses existing SP session)
-  // Local: fall back to simple fetch (same-folder CSVs)
   if (isSharePoint()) {
+    // SharePoint: use REST API with session credentials
     const url = spFileUrl(filename);
     const resp = await fetch(url, {
       credentials: 'include',
       headers: { Accept: 'text/plain' }
     });
-    if (!resp.ok) throw new Error(`SharePoint fetch failed for ${filename} (${resp.status}). Make sure the file is in the KPI Dashboard folder.`);
+    if (!resp.ok) throw new Error(`SharePoint fetch failed for ${filename} (${resp.status}).`);
+    return parseCSV(await resp.text());
+  } else if (isGitHubPages()) {
+    // GitHub Pages: read CSVs from raw.githubusercontent.com (same repo)
+    const url = `${GH_RAW_BASE}/${filename}?t=${Date.now()}`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`GitHub fetch failed for ${filename} (${resp.status}).`);
     return parseCSV(await resp.text());
   } else {
+    // Local development: same-folder fetch
     const resp = await fetch(filename);
     if (!resp.ok) throw new Error(`Cannot read ${filename}`);
     return parseCSV(await resp.text());
@@ -804,7 +814,7 @@ async function readCSV(filename) {
 // LOAD & CALCULATE
 // ═══════════════════════════════════════════════════════════════════════
 async function loadData() {
-  const src = isSharePoint() ? 'SharePoint' : 'local folder';
+  const src = isSharePoint() ? 'SharePoint' : isGitHubPages() ? 'GitHub repo' : 'local folder';
   setBanner('info', `Loading CSVs from ${src}...`);
   setUpdateBtn(true);
 
