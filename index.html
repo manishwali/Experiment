@@ -343,7 +343,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
       <p class="section-label" id="summaryLabel">KPI Summary — Mar-26</p>
       <div class="kpi-grid" id="orgKpiCards"></div>
-      <p class="section-label">Trends — Jan → Mar 2026</p>
+      <p class="section-label">Trends — <span id="orgTrendLabel"></span></p>
       <div class="chart-grid" id="orgChartGrid">
         <div class="chart-box"><h3>Feature velocity (SP)</h3><div class="chart-wrap"><canvas id="c-fv"></canvas></div></div>
         <div class="chart-box"><h3>Discovery velocity (days — lower is better)</h3><div class="chart-wrap"><canvas id="c-dv"></canvas></div></div>
@@ -549,7 +549,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       <div class="pd-kpi-grid" id="pdKpiCards"></div>
 
       <!-- TREND CHARTS -->
-      <p class="section-label" style="margin-top:16px">Monthly Trends — Jan → Mar 2026</p>
+      <p class="section-label" style="margin-top:16px">Monthly Trends — <span id="pdTrendLabel"></span></p>
       <div class="chart-grid" id="pdCharts"></div>
 
     </div>
@@ -673,11 +673,12 @@ const KPI_META = [
 ];
 
 // Dynamic pod insights — generated from live data, not hardcoded
-function getPodInsights(pName, pd) {
-  // Use latest active month dynamically
-  const mi = ACTIVE_MONTHS.length > 0
-    ? MONTHS.indexOf(ACTIVE_MONTHS[ACTIVE_MONTHS.length - 1])
-    : 2;
+function getPodInsights(pName, pd, mi) {
+  // mi = selected month index, passed in from caller
+  if (mi === undefined) {
+    mi = ACTIVE_MONTHS.length > 0
+      ? MONTHS.indexOf(ACTIVE_MONTHS[ACTIVE_MONTHS.length - 1]) : 2;
+  }
   const insights = [];
   const kpis = KPI_META;
 
@@ -1314,6 +1315,12 @@ function renderMonthlyOrg() {
 
   document.getElementById('summaryLabel').textContent = 'Summary — ' + MONTHS[mi];
 
+  // Update trend label dynamically
+  const orgTrendEl = document.getElementById('orgTrendLabel');
+  if (orgTrendEl && ACTIVE_MONTHS.length > 0) {
+    orgTrendEl.textContent = `${ACTIVE_MONTHS[0]} → ${ACTIVE_MONTHS[ACTIVE_MONTHS.length-1]}`;
+  }
+
   const cards = KPI_META.map(k => {
     const val = o[k.key+'_'+mi];
     const prev = prevMi !== null ? o[k.key+'_'+prevMi] : null;
@@ -1561,6 +1568,13 @@ function pdSelectQuarter(idx) {
 }
 
 function calcPodHealthAt(pd, mi) {
+  // Return 0 if this month has no data at all (prevents phantom scores on future months)
+  const hasAnyData = ['fv','dv','align','td','rq','sr','bv','ttd'].some(k => {
+    const v = pd[k+'_'+mi];
+    return v !== null && v !== undefined && v !== 0;
+  });
+  if (!hasAnyData && mi >= STATIC_MONTHS) return 0;
+
   // 9-KPI composite score for a specific month index
   const fv  = pd['fv_'+mi],  dv    = pd['dv_'+mi],  al = pd['align_'+mi];
   const td  = pd['td_'+mi],  rq    = pd['rq_'+mi],  sr = pd['sr_'+mi];
@@ -1626,10 +1640,11 @@ function renderPodDetail() {
   elL.style.cssText = `font-size:12px;font-weight:500;color:${scoreLabelColor};
     background:${scoreBg};display:inline-block;padding:2px 10px;border-radius:10px`;
 
-  // Monthly score pills (always show Q1 trend)
-  const activeMis = ACTIVE_MONTHS.map((_,i)=>i);
-  document.getElementById('pdMonthScores').innerHTML = activeMis.map(mi => {
+  // Monthly score pills — only show months with actual data
+  const scoreMis = MONTHS.map((m,i) => i).filter(mi => ACTIVE_MONTHS.includes(MONTHS[mi]));
+  document.getElementById('pdMonthScores').innerHTML = scoreMis.map(mi => {
     const s = calcPodHealthAt(pd, mi);
+    if (s === 0 && mi >= STATIC_MONTHS) return ''; // skip empty future months
     const c = s>=75?'#065F46':s>=50?'#92400E':'#991B1B';
     const bg = s>=75?'#D1FAE5':s>=50?'#FEF3C7':'#FEE2E2';
     const isCurrent = mi === effectiveMi;
@@ -1638,7 +1653,7 @@ function renderPodDetail() {
       <div style="font-size:10px;font-weight:500;background:${bg};color:${c};
                   border-radius:8px;padding:1px 8px;margin-top:2px">${MONTHS[mi]}</div>
     </div>`;
-  }).join('<div style="color:var(--text3);font-size:16px;align-self:center">→</div>');
+  }).filter(Boolean).join('<div style="color:var(--text3);font-size:16px;align-self:center">→</div>');
 
   // KPI-level at-risk / strengths for selected period
   const atRiskList = [], strengthList = [];
@@ -1678,8 +1693,8 @@ function renderPodDetail() {
       animation:{duration:300} }
   });
 
-  // ── Insights ─────────────────────────────────────────────────
-  const ins = getPodInsights(pName, pd);
+  // ── Insights — use selected month, not hardcoded Mar ─────────
+  const ins = getPodInsights(pName, pd, effectiveMi);
   document.getElementById('pdInsights').innerHTML = ins.length
     ? ins.map(i=>`<div class="insight-item"><span class="dot dot-${i.t}"></span><span>${i.m}</span></div>`).join('')
     : '<div class="insight-item"><span class="dot dot-a"></span><span>No data available yet.</span></div>';
@@ -1722,6 +1737,11 @@ function renderPodDetail() {
   }).join('');
 
   // ── Trend charts ──────────────────────────────────────────────
+  const trendLabel = ACTIVE_MONTHS.length > 0
+    ? `${ACTIVE_MONTHS[0]} → ${ACTIVE_MONTHS[ACTIVE_MONTHS.length-1]}`
+    : 'Jan-26 → Mar-26';
+  const pdTrendEl = document.getElementById('pdTrendLabel');
+  if (pdTrendEl) pdTrendEl.textContent = trendLabel;
   pdChartObjs.forEach(c => c && c.destroy());
   pdChartObjs = [];
   document.getElementById('pdCharts').innerHTML = KPI_META.map(k =>
