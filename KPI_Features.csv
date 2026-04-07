@@ -1,1 +1,8 @@
-﻿
+﻿"ID","Title","Project","State","Month","ClosedDate","DemoDate","BV_Total_Score","Min_CT_InProgress","TTD_Days","T2FU_Days"
+"1463243","[Q1 26'] GPT - Document Search V2.0.0 - Automated Pipelines, RBAC, Improved Eval Metrics","AI ML COE","Done","Apr-26","01-Apr-2026","31-Mar-2026","5","14-Apr-2025","351",""
+"1463244","[Q1 26'] GPT - Data Search V2.0.0 - Improved Evals, Automated Pipelines, RBAC, Confidence Scores","AI ML COE","Done","Apr-26","01-Apr-2026","31-Mar-2026","5","03-Jun-2025","301",""
+"1463245","[Q1 26'] Lumina GPT - Framework - Automated Ingestion, Observability","AI ML COE","Done","Apr-26","01-Apr-2026","31-Mar-2026","5","16-Jul-2025","258",""
+"1410172","5. Form List Pages","Mobile-NexGen-Aurigo-Build","Done","Mar-26","31-Mar-2026","23-Mar-2026","4","09-Dec-2025","104",""
+"1439148","Tech Item Management","Mobile-NexGen-Aurigo-Build","Done","Mar-26","31-Mar-2026","23-Mar-2026","4","","",""
+"1463385","New Aurigo Masterworks Branding","Mobile-NexGen-Aurigo-Build","Done","Apr-26","01-Apr-2026","18-Dec-2025","1","05-Nov-2025","43",""
+"1463390","Auto-Save Feature","Mobile-NexGen-Aurigo-Build","Done","Apr-26","01-Apr-2026","12-Dec-2025","1","30-Oct-2025","43",""
