@@ -1,9 +1,9 @@
 name: Refresh KPI Data
 
 on:
-  workflow_dispatch: {}   # No inputs — dates are always auto-calculated
+  workflow_dispatch: {}
   schedule:
-    - cron: '0 1 * * *'  # Daily 1AM UTC = 6:30AM IST
+    - cron: '0 1 * * *'
 
 jobs:
   refresh:
@@ -17,9 +17,9 @@ jobs:
         env:
           ADO_PAT: ${{ secrets.ADO_PAT }}
         run: |
-          $PAT     = $env:ADO_PAT
-          $ORG     = "aurigomasterworks"
-          $OUTDIR  = "$env:GITHUB_WORKSPACE"
+          $PAT  = $env:ADO_PAT
+          $ORG  = "aurigomasterworks"
+          $OUTDIR = "$env:GITHUB_WORKSPACE"
           $DV_CAP_DAYS = 365
 
           $PROJECTS = @(
@@ -34,52 +34,43 @@ jobs:
             "Mobile-NexGen-Aurigo-Build"
           )
 
-          $PBI_OUT     = "$OUTDIR\KPI_PBIs.csv"
-          $BUG_OUT     = "$OUTDIR\KPI_Bugs.csv"
-          $FEATURE_OUT = "$OUTDIR\KPI_Features.csv"
-          $SPRINT_OUT  = "$OUTDIR\KPI_Sprints.csv"
+          $PBI_OUT     = Join-Path $OUTDIR "KPI_PBIs.csv"
+          $BUG_OUT     = Join-Path $OUTDIR "KPI_Bugs.csv"
+          $FEATURE_OUT = Join-Path $OUTDIR "KPI_Features.csv"
+          $SPRINT_OUT  = Join-Path $OUTDIR "KPI_Sprints.csv"
 
-          # Always pull from 1st April to today — no manual input needed
-          $StartDate = "2026-04-01"
-          $EndDate   = (Get-Date).ToString("yyyy-MM-dd")
+          $StartDate   = "2026-04-01"
+          $EndDate     = (Get-Date).ToString("yyyy-MM-dd")
           $periodStart = [datetime]::ParseExact($StartDate, "yyyy-MM-dd", $null)
           $periodEnd   = [datetime]::ParseExact($EndDate,   "yyyy-MM-dd", $null)
 
-          Write-Host "Auto date range: $StartDate to $EndDate"
+          Write-Host "Date range: $StartDate to $EndDate"
 
-          # Validate PAT is present
           if ([string]::IsNullOrWhiteSpace($PAT)) {
-            Write-Host "ERROR: ADO_PAT secret is empty. Add it at Settings > Secrets > ADO_PAT"
+            Write-Host "ERROR: ADO_PAT secret is empty."
             exit 1
           }
 
-          # Delete existing CSVs so we get a clean full refresh from April
-          @($PBI_OUT, $BUG_OUT, $FEATURE_OUT, $SPRINT_OUT) | ForEach-Object {
-            if (Test-Path $_) { Remove-Item $_ -Force; Write-Host "Deleted: $_" }
+          foreach ($f in @($PBI_OUT, $BUG_OUT, $FEATURE_OUT, $SPRINT_OUT)) {
+            if (Test-Path $f) { Remove-Item $f -Force; Write-Host "Deleted: $f" }
           }
 
-          $base64  = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$PAT"))
-          $headers = @{
-            Authorization  = "Basic $base64"
-            "Content-Type" = "application/json"
-          }
+          $base64 = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$PAT"))
+          $headers = @{ Authorization = "Basic $base64"; "Content-Type" = "application/json" }
 
-          # Validate PAT works by testing against ADO
           Write-Host "Validating ADO PAT..."
           try {
-            $testUrl = "https://dev.azure.com/$ORG/_apis/projects?api-version=7.0"
+            $testUrl  = "https://dev.azure.com/$ORG/_apis/projects?api-version=7.0"
             $testResp = Invoke-RestMethod -Uri $testUrl -Headers $headers -Method Get -ErrorAction Stop
-            Write-Host "PAT valid — found $($testResp.count) projects"
+            Write-Host "PAT valid - found $($testResp.count) projects"
           } catch {
-            Write-Host "ERROR: ADO PAT validation failed: $_"
-            Write-Host "Please update ADO_PAT secret at github.com/manishwali/Experiment/settings/secrets/actions"
+            Write-Host "ERROR: PAT validation failed: $_"
             exit 1
           }
 
           function Format-Date($d) {
             if (-not $d) { return "" }
-            try { return [datetime]::Parse($d.Substring(0,10)).ToString("dd-MMM-yyyy") }
-            catch { return "" }
+            try { return [datetime]::Parse($d.Substring(0,10)).ToString("dd-MMM-yyyy") } catch { return "" }
           }
 
           function Get-FieldValue($fields, $fieldName) {
@@ -96,8 +87,8 @@ jobs:
               Write-Host "  $project -> $($resp.workItems.Count) items"
               return $resp.workItems
             } catch {
-              $statusCode = $_.Exception.Response.StatusCode.value__
-              Write-Host "WIQL error for ${project} (HTTP $statusCode): $_"
+              $code = $_.Exception.Response.StatusCode.value__
+              Write-Host "WIQL error $project (HTTP $code): $_"
               return @()
             }
           }
@@ -105,88 +96,82 @@ jobs:
           function Get-WorkItemsBatch($ids) {
             if ($ids.Count -eq 0) { return @() }
             $results = [System.Collections.Generic.List[PSCustomObject]]::new()
+            $fields  = "System.Id,System.Title,System.WorkItemType,System.TeamProject,System.State," +
+                       "System.CreatedDate,System.IterationPath,System.Parent," +
+                       "Microsoft.VSTS.Common.ClosedDate,Microsoft.VSTS.Scheduling.StoryPoints," +
+                       "Custom.ValueAreas,Custom.CT_InProgress,Custom.DemoDate," +
+                       "Custom.BV_Total_Score,Custom.BugsOrigin,Custom.T2FU_Days"
             for ($i = 0; $i -lt $ids.Count; $i += 200) {
               $batch = $ids[$i..([Math]::Min($i+199, $ids.Count-1))]
               $idStr = $batch -join ","
-              $fields = "System.Id,System.Title,System.WorkItemType,System.TeamProject,System.State," +
-                        "System.CreatedDate,System.IterationPath,System.Parent," +
-                        "Microsoft.VSTS.Common.ClosedDate,Microsoft.VSTS.Scheduling.StoryPoints," +
-                        "Custom.ValueAreas,Custom.CT_InProgress,Custom.DemoDate," +
-                        "Custom.BV_Total_Score,Custom.BugsOrigin,Custom.T2FU_Days"
-              $url = "https://dev.azure.com/$ORG/_apis/wit/workitems?ids=$idStr&fields=$fields&api-version=7.0"
+              $url   = "https://dev.azure.com/$ORG/_apis/wit/workitems?ids=$idStr&fields=$fields&api-version=7.0"
               try {
                 $resp = Invoke-RestMethod -Uri $url -Headers $headers -Method Get -ErrorAction Stop
                 foreach ($wi in $resp.value) { $results.Add($wi) }
-              } catch {
-                Write-Host "Batch fetch error: $_"
-              }
+              } catch { Write-Host "Batch error: $_" }
             }
             return $results
           }
 
-          # SPRINTS
+          # ── SPRINTS ──────────────────────────────────────────────────────
           Write-Host "Pulling sprints..."
           $allSprints = [System.Collections.Generic.List[PSCustomObject]]::new()
           foreach ($proj in $PROJECTS) {
             $enc = [Uri]::EscapeDataString($proj)
-            $iters = @()
             try {
-              $url  = "https://dev.azure.com/$ORG/$enc/_apis/work/teamsettings/iterations?api-version=7.0"
-              $resp = Invoke-RestMethod -Uri $url -Headers $headers -Method Get -ErrorAction Stop
+              $url   = "https://dev.azure.com/$ORG/$enc/_apis/work/teamsettings/iterations?api-version=7.0"
+              $resp  = Invoke-RestMethod -Uri $url -Headers $headers -Method Get -ErrorAction Stop
               $iters = $resp.value
-            } catch {}
+            } catch { $iters = @() }
             foreach ($it in $iters) {
-              $startDate = $it.attributes.startDate
-              $endDate   = $it.attributes.finishDate
-              if (-not $startDate) { continue }
-              $startDt = try { [datetime]::Parse($startDate.Substring(0,10)) } catch { $null }
-              $endDt   = if ($endDate) { try { [datetime]::Parse($endDate.Substring(0,10)) } catch { $null } } else { $null }
-              if ($startDt -gt $periodEnd) { continue }
-              if ($endDt -and $endDt -lt $periodStart) { continue }
-              $createdDate = if ($it.attributes.PSObject.Properties["createdDate"]) { $it.attributes.createdDate } else { $startDate }
-              $month = if ($startDt) { $startDt.ToString("MMM-yy") } else { "" }
+              $sd = $it.attributes.startDate
+              $ed = $it.attributes.finishDate
+              if (-not $sd) { continue }
+              $sDt = try { [datetime]::Parse($sd.Substring(0,10)) } catch { $null }
+              $eDt = if ($ed) { try { [datetime]::Parse($ed.Substring(0,10)) } catch { $null } } else { $null }
+              if ($sDt -gt $periodEnd) { continue }
+              if ($eDt -and $eDt -lt $periodStart) { continue }
+              $month = if ($sDt) { $sDt.ToString("MMM-yy") } else { "" }
               $allSprints.Add([PSCustomObject]@{
                 Project = $proj; IterationPath = $it.path; IterationName = $it.name
-                StartDate = Format-Date $startDate; EndDate = Format-Date $endDate
-                CreatedDate = Format-Date $createdDate; Month = $month
+                StartDate = Format-Date $sd; EndDate = Format-Date $ed; Month = $month
               })
             }
           }
           $allSprints | Export-Csv -Path $SPRINT_OUT -NoTypeInformation -Encoding UTF8
           Write-Host "Sprints: $($allSprints.Count) rows"
 
-          # PBIs
+          # ── PBIs ─────────────────────────────────────────────────────────
           Write-Host "Pulling PBIs..."
           $allPBIs = [System.Collections.Generic.List[PSCustomObject]]::new()
           foreach ($proj in $PROJECTS) {
-            $wiql = "SELECT [System.Id] FROM WorkItems " +
-                    "WHERE [System.TeamProject] = '$proj' " +
-                    "AND [System.WorkItemType] IN ('Product Backlog Item', 'Architecture') " +
-                    "AND [System.State] IN ('Closed', 'Done') " +
-                    "AND [Microsoft.VSTS.Common.ClosedDate] >= '$StartDate' " +
-                    "AND [Microsoft.VSTS.Common.ClosedDate] <= '$EndDate' " +
-                    "ORDER BY [System.Id]"
-            $wiRefs = Invoke-WiqlQuery $proj $wiql
-            if ($wiRefs.Count -eq 0) { continue }
-            $ids = $wiRefs | ForEach-Object { $_.id }
-            $wis = Get-WorkItemsBatch $ids
+            $q = "SELECT [System.Id] FROM WorkItems " +
+                 "WHERE [System.TeamProject] = '$proj' " +
+                 "AND [System.WorkItemType] IN ('Product Backlog Item','Architecture') " +
+                 "AND [System.State] IN ('Closed','Done') " +
+                 "AND [Microsoft.VSTS.Common.ClosedDate] >= '$StartDate' " +
+                 "AND [Microsoft.VSTS.Common.ClosedDate] <= '$EndDate' " +
+                 "ORDER BY [System.Id]"
+            $refs = Invoke-WiqlQuery $proj $q
+            if ($refs.Count -eq 0) { continue }
+            $wis = Get-WorkItemsBatch ($refs | ForEach-Object { $_.id })
             foreach ($wi in $wis) {
-              $f = $wi.fields
-              $closedDate  = Get-FieldValue $f "Microsoft.VSTS.Common.ClosedDate"
-              $createdDate = Get-FieldValue $f "System.CreatedDate"
-              $ctDate      = Get-FieldValue $f "Custom.CT_InProgress"
-              $closedDt    = if ($closedDate)  { try { [datetime]::Parse($closedDate.Substring(0,10))  } catch { $null } } else { $null }
-              $createdDt   = if ($createdDate) { try { [datetime]::Parse($createdDate.Substring(0,10)) } catch { $null } } else { $null }
-              $ctDt        = if ($ctDate)      { try { [datetime]::Parse($ctDate.Substring(0,10))      } catch { $null } } else { $null }
-              $dvDays = ""
+              $f          = $wi.fields
+              $closedDate = Get-FieldValue $f "Microsoft.VSTS.Common.ClosedDate"
+              $createdDate= Get-FieldValue $f "System.CreatedDate"
+              $ctDate     = Get-FieldValue $f "Custom.CT_InProgress"
+              $closedDt   = if ($closedDate)  { try { [datetime]::Parse($closedDate.Substring(0,10))  } catch { $null } } else { $null }
+              $createdDt  = if ($createdDate) { try { [datetime]::Parse($createdDate.Substring(0,10)) } catch { $null } } else { $null }
+              $ctDt       = if ($ctDate)      { try { [datetime]::Parse($ctDate.Substring(0,10))      } catch { $null } } else { $null }
+              $dvDays     = ""
               if ($ctDt -and $createdDt -and $ctDt -gt $createdDt) {
-                $rawDV = ($ctDt - $createdDt).Days
-                if ($rawDV -le $DV_CAP_DAYS) { $dvDays = $rawDV }
+                $raw = ($ctDt - $createdDt).Days
+                if ($raw -le $DV_CAP_DAYS) { $dvDays = $raw }
               }
-              $month     = if ($closedDt) { $closedDt.ToString("MMM-yy") } else { "" }
-              $parentId  = Get-FieldValue $f "System.Parent"
-              $valueArea = Get-FieldValue $f "Custom.ValueAreas"
-              $sp        = Get-FieldValue $f "Microsoft.VSTS.Scheduling.StoryPoints"
+              $month    = if ($closedDt) { $closedDt.ToString("MMM-yy") } else { "" }
+              $parentId = Get-FieldValue $f "System.Parent"
+              $va       = Get-FieldValue $f "Custom.ValueAreas"
+              $sp       = Get-FieldValue $f "Microsoft.VSTS.Scheduling.StoryPoints"
               if (-not $sp) { $sp = 0 }
               $allPBIs.Add([PSCustomObject]@{
                 ID = $wi.id; Title = Get-FieldValue $f "System.Title"
@@ -197,8 +182,8 @@ jobs:
                 CT_InProgress = Format-Date $ctDate
                 IterationPath = Get-FieldValue $f "System.IterationPath"
                 ParentFeatureID = $parentId; HasParent = if ($parentId) { 1 } else { 0 }
-                StoryPoints = $sp; ValueArea = $valueArea
-                IsArchitectural = if ($valueArea -eq "Architectural") { 1 } else { 0 }
+                StoryPoints = $sp; ValueArea = $va
+                IsArchitectural = if ($va -eq "Architectural") { 1 } else { 0 }
                 DV_Days = $dvDays; Sprint_Readiness = if ($ctDate -and $ctDate -ne "") { 1 } else { 0 }
               })
             }
@@ -206,63 +191,64 @@ jobs:
           $allPBIs | Export-Csv -Path $PBI_OUT -NoTypeInformation -Encoding UTF8
           Write-Host "PBIs: $($allPBIs.Count) rows"
 
-          # BUGS
+          # ── BUGS ─────────────────────────────────────────────────────────
           Write-Host "Pulling bugs..."
-          $allBugs = [System.Collections.Generic.List[PSCustomObject]]::new()
-          $prodOrigins = @("Customer", "Solution Engineering", "Sustenance Engineering")
+          $allBugs     = [System.Collections.Generic.List[PSCustomObject]]::new()
+          $prodOrigins = @("Customer","Solution Engineering","Sustenance Engineering")
           foreach ($proj in $PROJECTS) {
-            $wiql = "SELECT [System.Id] FROM WorkItems " +
-                    "WHERE [System.TeamProject] = '$proj' " +
-                    "AND [System.WorkItemType] = 'Bug' " +
-                    "AND [System.CreatedDate] >= '$StartDate' " +
-                    "AND [System.CreatedDate] <= '$EndDate' " +
-                    "AND [System.State] NOT IN ('Deferred', 'Removed', 'Rejected') " +
-                    "ORDER BY [System.Id]"
-            $wiRefs = Invoke-WiqlQuery $proj $wiql
-            if ($wiRefs.Count -eq 0) { continue }
-            $ids = $wiRefs | ForEach-Object { $_.id }
-            $wis = @()
+            $q = "SELECT [System.Id] FROM WorkItems " +
+                 "WHERE [System.TeamProject] = '$proj' " +
+                 "AND [System.WorkItemType] = 'Bug' " +
+                 "AND [System.CreatedDate] >= '$StartDate' " +
+                 "AND [System.CreatedDate] <= '$EndDate' " +
+                 "AND [System.State] NOT IN ('Deferred','Removed','Rejected') " +
+                 "ORDER BY [System.Id]"
+            $refs = Invoke-WiqlQuery $proj $q
+            if ($refs.Count -eq 0) { continue }
+            $ids  = $refs | ForEach-Object { $_.id }
             $bugFields = "System.Id,System.Title,System.TeamProject,System.State,System.CreatedDate,Custom.BugsOrigin"
             for ($i = 0; $i -lt $ids.Count; $i += 200) {
-              $batch = $ids[$i..([Math]::Min($i+199, $ids.Count-1))]
-              $url = "https://dev.azure.com/$ORG/_apis/wit/workitems?ids=$($batch -join ',')&fields=$bugFields&api-version=7.0"
-              try { $resp = Invoke-RestMethod -Uri $url -Headers $headers -Method Get -ErrorAction Stop; $wis += $resp.value } catch {}
-            }
-            foreach ($wi in $wis) {
-              $f = $wi.fields
-              $createdDate = Get-FieldValue $f "System.CreatedDate"
-              $bugOrigin   = Get-FieldValue $f "Custom.BugsOrigin"
-              $createdDt   = if ($createdDate) { try { [datetime]::Parse($createdDate.Substring(0,10)) } catch { $null } } else { $null }
-              $allBugs.Add([PSCustomObject]@{
-                ID = $wi.id; Title = Get-FieldValue $f "System.Title"
-                Project = Get-FieldValue $f "System.TeamProject"
-                State = Get-FieldValue $f "System.State"
-                Month = if ($createdDt) { $createdDt.ToString("MMM-yy") } else { "" }
-                CreatedDate = Format-Date $createdDate; BugOrigin = $bugOrigin
-                IsProduction = if ($prodOrigins -contains $bugOrigin) { 1 } else { 0 }
-              })
+              $batch = $ids[$i..([Math]::Min($i+199,$ids.Count-1))]
+              $idStr = $batch -join ","
+              $url   = "https://dev.azure.com/$ORG/_apis/wit/workitems?ids=$idStr&fields=$bugFields&api-version=7.0"
+              try {
+                $resp = Invoke-RestMethod -Uri $url -Headers $headers -Method Get -ErrorAction Stop
+                foreach ($wi in $resp.value) {
+                  $f          = $wi.fields
+                  $createdDate= Get-FieldValue $f "System.CreatedDate"
+                  $bugOrigin  = Get-FieldValue $f "Custom.BugsOrigin"
+                  $createdDt  = if ($createdDate) { try { [datetime]::Parse($createdDate.Substring(0,10)) } catch { $null } } else { $null }
+                  $allBugs.Add([PSCustomObject]@{
+                    ID = $wi.id; Title = Get-FieldValue $f "System.Title"
+                    Project = Get-FieldValue $f "System.TeamProject"
+                    State = Get-FieldValue $f "System.State"
+                    Month = if ($createdDt) { $createdDt.ToString("MMM-yy") } else { "" }
+                    CreatedDate = Format-Date $createdDate; BugOrigin = $bugOrigin
+                    IsProduction = if ($prodOrigins -contains $bugOrigin) { 1 } else { 0 }
+                  })
+                }
+              } catch { Write-Host "Bug batch error: $_" }
             }
           }
           $allBugs | Export-Csv -Path $BUG_OUT -NoTypeInformation -Encoding UTF8
           Write-Host "Bugs: $($allBugs.Count) rows"
 
-          # FEATURES
+          # ── FEATURES ─────────────────────────────────────────────────────
           Write-Host "Pulling features..."
           $allFeatures = [System.Collections.Generic.List[PSCustomObject]]::new()
           foreach ($proj in $PROJECTS) {
-            $wiql = "SELECT [System.Id] FROM WorkItems " +
-                    "WHERE [System.TeamProject] = '$proj' " +
-                    "AND [System.WorkItemType] = 'Feature' " +
-                    "AND [System.State] IN ('Closed', 'Done') " +
-                    "AND [Microsoft.VSTS.Common.ClosedDate] >= '$StartDate' " +
-                    "AND [Microsoft.VSTS.Common.ClosedDate] <= '$EndDate' " +
-                    "ORDER BY [System.Id]"
-            $wiRefs = Invoke-WiqlQuery $proj $wiql
-            if ($wiRefs.Count -eq 0) { continue }
-            $ids = $wiRefs | ForEach-Object { $_.id }
-            $wis = Get-WorkItemsBatch $ids
+            $q = "SELECT [System.Id] FROM WorkItems " +
+                 "WHERE [System.TeamProject] = '$proj' " +
+                 "AND [System.WorkItemType] = 'Feature' " +
+                 "AND [System.State] IN ('Closed','Done') " +
+                 "AND [Microsoft.VSTS.Common.ClosedDate] >= '$StartDate' " +
+                 "AND [Microsoft.VSTS.Common.ClosedDate] <= '$EndDate' " +
+                 "ORDER BY [System.Id]"
+            $refs = Invoke-WiqlQuery $proj $q
+            if ($refs.Count -eq 0) { continue }
+            $wis = Get-WorkItemsBatch ($refs | ForEach-Object { $_.id })
             foreach ($wi in $wis) {
-              $f = $wi.fields
+              $f          = $wi.fields
               $demoDate   = Get-FieldValue $f "Custom.DemoDate"
               $closedDate = Get-FieldValue $f "Microsoft.VSTS.Common.ClosedDate"
               $demoDt     = if ($demoDate)   { try { [datetime]::Parse($demoDate.Substring(0,10))   } catch { $null } } else { $null }
@@ -270,25 +256,25 @@ jobs:
               $month      = if ($closedDt) { $closedDt.ToString("MMM-yy") } else { "" }
               $minCT = ""; $ttdDays = ""
               if ($demoDt) {
-                $enc = [Uri]::EscapeDataString($proj)
+                $enc    = [Uri]::EscapeDataString($proj)
                 $relUrl = "https://dev.azure.com/$ORG/$enc/_apis/wit/workitems/$($wi.id)?`$expand=relations&api-version=7.0"
                 try {
-                  $wiDetail = Invoke-RestMethod -Uri $relUrl -Headers $headers -Method Get -ErrorAction Stop
+                  $detail   = Invoke-RestMethod -Uri $relUrl -Headers $headers -Method Get -ErrorAction Stop
                   $childIds = @()
-                  foreach ($rel in $wiDetail.relations) {
+                  foreach ($rel in $detail.relations) {
                     if ($rel.rel -eq "System.LinkTypes.Hierarchy-Forward") { $childIds += $rel.url.Split("/")[-1] }
                   }
                   if ($childIds.Count -gt 0) {
                     $childWIs = Get-WorkItemsBatch $childIds
-                    $createdDates = @()
+                    $cDates   = @()
                     foreach ($cw in $childWIs) {
-                      $cdVal = Get-FieldValue $cw.fields "System.CreatedDate"
-                      if ($cdVal) { try { $createdDates += [datetime]::Parse($cdVal.Substring(0,10)) } catch {} }
+                      $cd = Get-FieldValue $cw.fields "System.CreatedDate"
+                      if ($cd) { try { $cDates += [datetime]::Parse($cd.Substring(0,10)) } catch {} }
                     }
-                    if ($createdDates.Count -gt 0) {
-                      $minCreatedDt = ($createdDates | Sort-Object)[0]
-                      $minCT = $minCreatedDt.ToString("dd-MMM-yyyy")
-                      if ($demoDt -gt $minCreatedDt) { $ttdDays = ($demoDt - $minCreatedDt).Days }
+                    if ($cDates.Count -gt 0) {
+                      $minDt = ($cDates | Sort-Object)[0]
+                      $minCT = $minDt.ToString("dd-MMM-yyyy")
+                      if ($demoDt -gt $minDt) { $ttdDays = ($demoDt - $minDt).Days }
                     }
                   }
                 } catch {}
@@ -306,7 +292,7 @@ jobs:
           }
           $allFeatures | Export-Csv -Path $FEATURE_OUT -NoTypeInformation -Encoding UTF8
           Write-Host "Features: $($allFeatures.Count) rows"
-          Write-Host "All CSVs generated successfully."
+          Write-Host "Done."
 
       - name: Commit and push CSVs
         shell: bash
@@ -314,7 +300,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add KPI_PBIs.csv KPI_Bugs.csv KPI_Features.csv KPI_Sprints.csv
-          git diff --staged --quiet || git commit -m "Refresh KPI data 2026-04-01 to $(date '+%Y-%m-%d') - $(date '+%Y-%m-%d %H:%M')"
+          git diff --staged --quiet || git commit -m "Refresh KPI data 2026-04-01 to $(date '+%Y-%m-%d') - $(date '+%H:%M')"
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
