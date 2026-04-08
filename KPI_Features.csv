@@ -1,1 +1,10 @@
-﻿
+﻿"ID","Title","Project","State","Month","ClosedDate","DemoDate","BV_Total_Score","Min_Child_CreatedDate","TTD_Days","T2FU_Days"
+"1388258","[Q1 26'] MW Help Chat :)","AI ML COE","Done","Apr-26","07-Apr-2026","31-Mar-2026","5","04-Nov-2025","147",""
+"1463243","[Q1 26'] GPT - Document Search V2.0.0 - Automated Pipelines, RBAC, Improved Eval Metrics","AI ML COE","Done","Apr-26","01-Apr-2026","31-Mar-2026","5","14-Feb-2025","410",""
+"1463244","[Q1 26'] GPT - Data Search V2.0.0 - Improved Evals, Automated Pipelines, RBAC, Confidence Scores","AI ML COE","Done","Apr-26","01-Apr-2026","31-Mar-2026","5","04-Mar-2025","392",""
+"1463245","[Q1 26'] Lumina GPT - Framework - Automated Ingestion, Observability","AI ML COE","Done","Apr-26","01-Apr-2026","31-Mar-2026","5","20-Feb-2025","404",""
+"1408331","Authentication using OAuth 2.0 (Client Credentials) with JWT Tokens and TLS Encryption","API_Integrations","Done","Apr-26","01-Apr-2026","","5","","",""
+"1462059","OLH and Stabilization Feature QPR1 2026","AurigoMasterworks","Done","Apr-26","01-Apr-2026","","1","","",""
+"1461542","Enable Library Module Data for ARS Reports","MW Platform 2.0","Done","Apr-26","01-Apr-2026","","3","","",""
+"1463385","New Aurigo Masterworks Branding","Mobile-NexGen-Aurigo-Build","Done","Apr-26","01-Apr-2026","18-Dec-2025","1","16-Sep-2025","93",""
+"1463390","Auto-Save Feature","Mobile-NexGen-Aurigo-Build","Done","Apr-26","01-Apr-2026","12-Dec-2025","1","18-Apr-2025","238",""
