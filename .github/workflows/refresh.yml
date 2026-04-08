@@ -1,18 +1,16 @@
 name: Refresh KPI Data
 
 on:
-  schedule:
-    - cron: '0 1 * * *'   # runs daily at 1:00 AM UTC (6:30 AM IST)
   workflow_dispatch:
     inputs:
       start_date:
-        description: 'Start date (YYYY-MM-DD) — leave blank for auto (yesterday)'
-        required: false
-        default: ''
+        description: 'Start date (YYYY-MM-DD)'
+        required: true
+        default: '2026-04-01'
       end_date:
-        description: 'End date (YYYY-MM-DD) — leave blank for auto (today)'
-        required: false
-        default: ''
+        description: 'End date (YYYY-MM-DD)'
+        required: true
+        default: '2026-06-30'
 
 jobs:
   refresh:
@@ -51,39 +49,38 @@ jobs:
           $FEATURE_OUT = "$OUTDIR\KPI_Features.csv"
           $SPRINT_OUT  = "$OUTDIR\KPI_Sprints.csv"
 
-          # --- Date handling: auto yesterday->today for scheduled runs ---
-          $StartDate = "${{ github.event.inputs.start_date }}"
-          $EndDate   = "${{ github.event.inputs.end_date }}"
+          # --- FIX: robust date parsing with fallback defaults ---
+          $StartDateRaw = $env:START_DATE
+          $EndDateRaw   = $env:END_DATE
 
-          # Scheduled runs have empty inputs — default to yesterday -> today
-          if ([string]::IsNullOrWhiteSpace($StartDate) -or $StartDate -eq "") {
-            $StartDate = (Get-Date).AddDays(-1).ToString("yyyy-MM-dd")
-            Write-Host "Auto start_date (yesterday): $StartDate"
+          if ([string]::IsNullOrWhiteSpace($StartDateRaw)) {
+            Write-Host "WARNING: START_DATE is empty, using default 2026-04-01"
+            $StartDateRaw = "2026-04-01"
           }
-          if ([string]::IsNullOrWhiteSpace($EndDate) -or $EndDate -eq "") {
-            $EndDate = (Get-Date).ToString("yyyy-MM-dd")
-            Write-Host "Auto end_date (today): $EndDate"
+          if ([string]::IsNullOrWhiteSpace($EndDateRaw)) {
+            Write-Host "WARNING: END_DATE is empty, using default 2026-06-30"
+            $EndDateRaw = "2026-06-30"
           }
 
-          # Trim to exactly YYYY-MM-DD
-          $StartDate = $StartDate.Trim().Substring(0, [Math]::Min(10, $StartDate.Trim().Length))
-          $EndDate   = $EndDate.Trim().Substring(0, [Math]::Min(10, $EndDate.Trim().Length))
+          # Trim to YYYY-MM-DD in case extra chars slipped in
+          $StartDate = $StartDateRaw.Trim().Substring(0, [Math]::Min(10, $StartDateRaw.Trim().Length))
+          $EndDate   = $EndDateRaw.Trim().Substring(0, [Math]::Min(10, $EndDateRaw.Trim().Length))
 
           try {
             $periodStart = [datetime]::ParseExact($StartDate, "yyyy-MM-dd", $null)
           } catch {
-            Write-Host "ERROR: Could not parse start_date: '$StartDate'"
+            Write-Host "ERROR: Could not parse START_DATE '$StartDate'. Expected format: YYYY-MM-DD"
             exit 1
           }
           try {
             $periodEnd = [datetime]::ParseExact($EndDate, "yyyy-MM-dd", $null)
           } catch {
-            Write-Host "ERROR: Could not parse end_date: '$EndDate'"
+            Write-Host "ERROR: Could not parse END_DATE '$EndDate'. Expected format: YYYY-MM-DD"
             exit 1
           }
 
           Write-Host "Period: $($periodStart.ToString('yyyy-MM-dd')) to $($periodEnd.ToString('yyyy-MM-dd'))"
-          # --- end date handling ---
+          # --- end fix ---
 
           $base64  = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$PAT"))
           $headers = @{
@@ -125,7 +122,7 @@ jobs:
                         "System.CreatedDate,System.IterationPath,System.Parent," +
                         "Microsoft.VSTS.Common.ClosedDate,Microsoft.VSTS.Scheduling.StoryPoints," +
                         "Custom.ValueAreas,Custom.CT_InProgress,Custom.DemoDate," +
-                        "Custom.BV_Total_Score,Custom.BugsOrigin"
+                        "Custom.BV_Total_Score,Custom.BugsOrigin,Custom.T2FU_Days"
               $url = "https://dev.azure.com/$ORG/_apis/wit/workitems?ids=$idStr&fields=$fields&api-version=7.0"
               try {
                 $resp = Invoke-RestMethod -Uri $url -Headers $headers -Method Get -ErrorAction Stop
@@ -165,17 +162,8 @@ jobs:
               })
             }
           }
-          # Merge with existing CSV (keep old rows, append new, deduplicate by Project+SprintName)
-          if (Test-Path $SPRINT_OUT) {
-            $existing = Import-Csv $SPRINT_OUT
-            $combined = @($existing) + @($allSprints)
-            $merged = $combined | Sort-Object Project, SprintName -Unique
-            Write-Host "Sprints: $($allSprints.Count) new rows, $($existing.Count) existing, $($merged.Count) after merge"
-            $merged | Export-Csv -Path $SPRINT_OUT -NoTypeInformation -Encoding UTF8
-          } else {
-            $allSprints | Export-Csv -Path $SPRINT_OUT -NoTypeInformation -Encoding UTF8
-            Write-Host "Sprints: $($allSprints.Count) rows (new file)"
-          }
+          $allSprints | Export-Csv -Path $SPRINT_OUT -NoTypeInformation -Encoding UTF8
+          Write-Host "Sprints: $($allSprints.Count) rows"
 
           # PBIs
           Write-Host "Pulling PBIs..."
@@ -225,18 +213,8 @@ jobs:
               })
             }
           }
-          # Merge with existing CSV (deduplicate by ID)
-          if (Test-Path $PBI_OUT) {
-            $existing = Import-Csv $PBI_OUT
-            $existingIds = $existing | ForEach-Object { $_.ID }
-            $newRows = $allPBIs | Where-Object { $existingIds -notcontains $_.ID }
-            $merged = @($existing) + @($newRows)
-            Write-Host "PBIs: $($allPBIs.Count) pulled, $($newRows.Count) new, $($merged.Count) total after merge"
-            $merged | Export-Csv -Path $PBI_OUT -NoTypeInformation -Encoding UTF8
-          } else {
-            $allPBIs | Export-Csv -Path $PBI_OUT -NoTypeInformation -Encoding UTF8
-            Write-Host "PBIs: $($allPBIs.Count) rows (new file)"
-          }
+          $allPBIs | Export-Csv -Path $PBI_OUT -NoTypeInformation -Encoding UTF8
+          Write-Host "PBIs: $($allPBIs.Count) rows"
 
           # BUGS
           Write-Host "Pulling bugs..."
@@ -275,18 +253,8 @@ jobs:
               })
             }
           }
-          # Merge with existing CSV (deduplicate by ID)
-          if (Test-Path $BUG_OUT) {
-            $existing = Import-Csv $BUG_OUT
-            $existingIds = $existing | ForEach-Object { $_.ID }
-            $newRows = $allBugs | Where-Object { $existingIds -notcontains $_.ID }
-            $merged = @($existing) + @($newRows)
-            Write-Host "Bugs: $($allBugs.Count) pulled, $($newRows.Count) new, $($merged.Count) total after merge"
-            $merged | Export-Csv -Path $BUG_OUT -NoTypeInformation -Encoding UTF8
-          } else {
-            $allBugs | Export-Csv -Path $BUG_OUT -NoTypeInformation -Encoding UTF8
-            Write-Host "Bugs: $($allBugs.Count) rows (new file)"
-          }
+          $allBugs | Export-Csv -Path $BUG_OUT -NoTypeInformation -Encoding UTF8
+          Write-Host "Bugs: $($allBugs.Count) rows"
 
           # FEATURES
           Write-Host "Pulling features..."
@@ -322,63 +290,41 @@ jobs:
                   }
                   if ($childIds.Count -gt 0) {
                     $childWIs = Get-WorkItemsBatch $childIds
-                    $ctDates = @()
+                    $createdDates = @()
                     foreach ($cw in $childWIs) {
-                      $ctVal = Get-FieldValue $cw.fields "Custom.CT_InProgress"
-                      if ($ctVal) { try { $ctDates += [datetime]::Parse($ctVal.Substring(0,10)) } catch {} }
+                      $cdVal = Get-FieldValue $cw.fields "System.CreatedDate"
+                      if ($cdVal) { try { $createdDates += [datetime]::Parse($cdVal.Substring(0,10)) } catch {} }
                     }
-                    if ($ctDates.Count -gt 0) {
-                      $minCTDt = ($ctDates | Sort-Object)[0]
-                      $minCT = $minCTDt.ToString("dd-MMM-yyyy")
-                      if ($demoDt -gt $minCTDt) { $ttdDays = ($demoDt - $minCTDt).Days }
+                    if ($createdDates.Count -gt 0) {
+                      $minCreatedDt = ($createdDates | Sort-Object)[0]
+                      $minCT = $minCreatedDt.ToString("dd-MMM-yyyy")
+                      if ($demoDt -gt $minCreatedDt) { $ttdDays = ($demoDt - $minCreatedDt).Days }
                     }
                   }
                 } catch {}
               }
-              # Fetch T2FU_Days separately — field only exists in some projects
-              $t2fuDays = ""
-              $t2fuUrl = "https://dev.azure.com/$ORG/_apis/wit/workitems/$($wi.id)?fields=Custom.T2FU_Days&api-version=7.0"
-              try {
-                $t2fuResp = Invoke-RestMethod -Uri $t2fuUrl -Headers $headers -Method Get -ErrorAction Stop
-                $t2fuDays = Get-FieldValue $t2fuResp.fields "Custom.T2FU_Days"
-              } catch { $t2fuDays = "" }
               $allFeatures.Add([PSCustomObject]@{
                 ID = $wi.id; Title = Get-FieldValue $f "System.Title"
                 Project = Get-FieldValue $f "System.TeamProject"
                 State = Get-FieldValue $f "System.State"; Month = $month
                 ClosedDate = Format-Date $closedDate; DemoDate = Format-Date $demoDate
                 BV_Total_Score = Get-FieldValue $f "Custom.BV_Total_Score"
-                Min_CT_InProgress = $minCT; TTD_Days = $ttdDays
-                T2FU_Days = $t2fuDays
+                Min_Child_CreatedDate = $minCT; TTD_Days = $ttdDays
+                T2FU_Days = Get-FieldValue $f "Custom.T2FU_Days"
               })
             }
           }
-          # Merge with existing CSV (deduplicate by ID)
-          if (Test-Path $FEATURE_OUT) {
-            $existing = Import-Csv $FEATURE_OUT
-            $existingIds = $existing | ForEach-Object { $_.ID }
-            $newRows = $allFeatures | Where-Object { $existingIds -notcontains $_.ID }
-            $merged = @($existing) + @($newRows)
-            Write-Host "Features: $($allFeatures.Count) pulled, $($newRows.Count) new, $($merged.Count) total after merge"
-            $merged | Export-Csv -Path $FEATURE_OUT -NoTypeInformation -Encoding UTF8
-          } else {
-            $allFeatures | Export-Csv -Path $FEATURE_OUT -NoTypeInformation -Encoding UTF8
-            Write-Host "Features: $($allFeatures.Count) rows (new file)"
-          }
-          Write-Host "All CSVs merged successfully."
+          $allFeatures | Export-Csv -Path $FEATURE_OUT -NoTypeInformation -Encoding UTF8
+          Write-Host "Features: $($allFeatures.Count) rows"
+          Write-Host "All CSVs generated successfully."
 
       - name: Commit and push CSVs
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote set-url origin https://x-access-token:${{ secrets.GH_TOKEN }}@github.com/manishwali/Experiment.git
           git add KPI_PBIs.csv KPI_Bugs.csv KPI_Features.csv KPI_Sprints.csv
-          git status
-          echo "Row counts:"
-          wc -l KPI_PBIs.csv KPI_Bugs.csv KPI_Features.csv KPI_Sprints.csv
-          git diff --staged --quiet && echo "NO CHANGES DETECTED - files identical to repo" || echo "CHANGES DETECTED - committing"
-          git diff --staged --quiet || git commit -m "Refresh KPI data ${{ github.event.inputs.start_date }} to ${{ github.event.inputs.end_date }} - $(date '+%Y-%m-%d %H:%M')"
+          git diff --staged --quiet || git commit -m "Refresh KPI data - $(date '+%Y-%m-%d %H:%M')"
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
