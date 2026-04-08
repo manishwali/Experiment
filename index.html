@@ -1,0 +1,2706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aurigo Product Engineering KPI Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy:    #006272;
+  --navy-dark: #004d5a;
+  --aurigo-red: #E8001A;
+  --white:   #FFFFFF;
+  --bg:      #F5F8F9;
+  --bg2:     #EBF2F4;
+  --border:  #C8D8DB;
+  --text:    #111827;
+  --text2:   #6B7280;
+  --text3:   #9CA3AF;
+  --green:   #065F46; --green-bg: #D1FAE5;
+  --red:     #991B1B; --red-bg:   #FEE2E2;
+  --amber:   #92400E; --amber-bg: #FEF3C7;
+  --blue:    #006272; --blue-bg:  #D6EFF2;
+  --radius:  8px;
+  --radius-lg: 12px;
+}
+
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+       background: var(--bg); color: var(--text); font-size: 14px; }
+
+/* ── HEADER ── */
+.header { background: linear-gradient(135deg, #004d5a 0%, #006272 60%, #007B8A 100%);
+          padding: 0 24px;
+          display: flex; align-items: center; justify-content: space-between;
+          height: 56px; position: sticky; top: 0; z-index: 100; }
+.header-left { display: flex; align-items: center; gap: 16px; }
+.header-left h1 { font-size: 15px; font-weight: 500; color: #fff; }
+.header-left p  { font-size: 11px; color: rgba(255,255,255,.55); margin-top: 1px; }
+.header-right { display: flex; align-items: center; gap: 10px; }
+.last-updated { font-size: 11px; color: rgba(255,255,255,.5); }
+
+/* Aurigo logo badge */
+.aurigo-logo {
+  display: flex; align-items: center;
+  background: var(--aurigo-red);
+  padding: 5px 10px 5px 8px;
+  border-radius: 4px;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+.aurigo-logo span {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+.aurigo-logo sup {
+  font-size: 8px;
+  font-weight: 400;
+  vertical-align: super;
+  margin-left: 1px;
+}
+
+/* Divider between logo and title */
+.header-divider {
+  width: 1px; height: 28px;
+  background: rgba(255,255,255,.25);
+  margin: 0 4px;
+}
+
+.btn-update { display: flex; align-items: center; gap: 6px; padding: 7px 14px;
+  background: rgba(255,255,255,.12); border: 0.5px solid rgba(255,255,255,.25);
+  border-radius: var(--radius); color: #fff; font-size: 12px; font-weight: 500;
+  cursor: pointer; transition: background .15s; }
+.btn-update:hover { background: rgba(255,255,255,.2); }
+.btn-update.loading { opacity: .7; pointer-events: none; }
+.spinner { width: 12px; height: 12px; border: 2px solid rgba(255,255,255,.3);
+           border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── TABS ── */
+.tabs { background: #fff; border-bottom: 1px solid var(--border);
+        padding: 0 24px; display: flex; gap: 0; }
+.tab { padding: 12px 20px; font-size: 13px; font-weight: 500; color: var(--text2);
+       cursor: pointer; border-bottom: 2px solid transparent;
+       transition: color .15s, border-color .15s; }
+.tab.active { color: var(--navy); border-bottom-color: var(--navy); border-bottom-width: 2.5px; }
+.tab:hover:not(.active) { color: var(--text); }
+
+/* ── MAIN CONTENT ── */
+.content { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+
+/* ── STATUS BANNER ── */
+.banner { display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+          border-radius: var(--radius); margin-bottom: 16px; font-size: 12px; }
+.banner-info    { background: var(--blue-bg);  color: var(--blue);  border: 0.5px solid #93C5FD; }
+.banner-success { background: var(--green-bg); color: var(--green); border: 0.5px solid #6EE7B7; }
+.banner-warn    { background: var(--amber-bg); color: var(--amber); border: 0.5px solid #FCD34D; }
+.banner-error   { background: var(--red-bg);   color: var(--red);   border: 0.5px solid #FCA5A5; }
+.banner.hidden  { display: none; }
+
+/* ── TIME CONTROLS ── */
+.time-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.time-bar .tl { font-size: 11px; font-weight: 500; color: var(--text2); }
+.seg { display: flex; border: 0.5px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.seg button { border: none; background: none; padding: 5px 14px; font-size: 12px;
+              color: var(--text2); cursor: pointer; border-right: 0.5px solid var(--border); }
+.seg button:last-child { border-right: none; }
+.seg button.active { background: var(--navy); color: #fff; font-weight: 500; }
+.seg button:hover:not(.active) { background: var(--bg2); }
+.divider-v { width: 0.5px; height: 22px; background: var(--border); }
+.mpills { display: flex; gap: 6px; }
+.mpill { border: 0.5px solid var(--border); border-radius: 20px; padding: 4px 12px;
+         font-size: 12px; cursor: pointer; background: none; color: var(--text2); }
+.mpill.active { background: var(--navy); color: #fff; border-color: var(--navy); font-weight: 500; }
+.mpill:hover:not(.active) { background: var(--bg2); }
+
+.period-select {
+  border: 0.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 5px 30px 5px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  background-color: var(--white);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px 6px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236B7280'/%3E%3C/svg%3E");
+  min-width: 120px;
+  outline: none;
+  font-family: inherit;
+}
+.period-select:focus { border-color: var(--navy); }
+
+/* ── ACCORDIONS ── */
+.kpi-accordion { margin-bottom: 12px; }
+.acc-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; background: #fff;
+  border: 0.5px solid var(--border); border-radius: var(--radius-lg);
+  cursor: pointer; user-select: none;
+  transition: border-color .15s;
+}
+.acc-header:hover { border-color: var(--navy); }
+.acc-header.open { border-radius: var(--radius-lg) var(--radius-lg) 0 0; border-bottom-color: var(--bg2); }
+.acc-title { display: flex; align-items: center; gap: 10px; }
+.acc-title span { font-size: 13px; font-weight: 500; color: var(--text); }
+.acc-badge { font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 10px; }
+.acc-actions { display: flex; align-items: center; gap: 8px; }
+.acc-chevron { font-size: 11px; color: var(--text2); transition: transform .2s; }
+.acc-header.open .acc-chevron { transform: rotate(180deg); }
+.acc-body {
+  display: none; padding: 14px 16px 16px;
+  background: #fff; border: 0.5px solid var(--border);
+  border-top: none; border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+}
+.acc-body.open { display: block; }
+.btn-pdf {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px; font-size: 11px; font-weight: 500;
+  border: 0.5px solid var(--border); border-radius: var(--radius);
+  background: none; color: var(--text2); cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.btn-pdf:hover { background: var(--bg2); border-color: var(--navy); color: var(--navy); }
+
+/* ── SECTION LABEL ── */
+.section-label { font-size: 11px; font-weight: 600; color: var(--text2);
+                 text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
+
+/* ── KPI CARDS ── */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 8px; margin-bottom: 20px; }
+.kpi-card { background: #fff; border: 0.5px solid var(--border);
+            border-radius: var(--radius-lg); padding: 14px; }
+.kpi-card .kc-label { font-size: 11px; color: var(--text2); margin-bottom: 6px; line-height: 1.3; }
+.kpi-card .kc-value { font-size: 22px; font-weight: 500; color: var(--text); }
+.kpi-card .kc-unit  { font-size: 13px; font-weight: 400; }
+.kpi-card .kc-sub   { font-size: 11px; margin-top: 4px; }
+.kpi-card .kc-status{ font-size: 10px; font-weight: 500; margin-top: 6px;
+                       padding: 2px 8px; border-radius: 10px; display: inline-block; }
+
+/* ── CHARTS ── */
+.chart-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+              gap: 12px; margin-bottom: 20px; }
+.chart-box { background: #fff; border: 0.5px solid var(--border);
+             border-radius: var(--radius-lg); padding: 14px; }
+.chart-box h3 { font-size: 11px; font-weight: 500; color: var(--text2); margin-bottom: 10px; }
+.chart-wrap { position: relative; height: 140px; }
+
+/* ── SCORECARD TABLE ── */
+.scorecard-wrap { background: #fff; border: 0.5px solid var(--border);
+                  border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 20px; }
+.scorecard-wrap table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.scorecard-wrap th { padding: 8px 12px; font-size: 11px; font-weight: 500;
+                     color: var(--text2); background: var(--bg2);
+                     border-bottom: 0.5px solid var(--border); text-align: left; }
+.scorecard-wrap td { padding: 8px 12px; border-bottom: 0.5px solid var(--border);
+                     color: var(--text); }
+.scorecard-wrap tr:last-child td { border-bottom: none; }
+.scorecard-wrap tr:hover td { background: var(--bg); }
+.chip { font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 10px; }
+.chip-g { background: var(--green-bg); color: var(--green); }
+.chip-r { background: var(--red-bg);   color: var(--red); }
+.chip-a { background: var(--amber-bg); color: var(--amber); }
+.chip-b { background: var(--blue-bg);  color: var(--blue); }
+.up   { color: #059669; } .down { color: #DC2626; } .flat { color: var(--text2); }
+
+/* ── POD GRID ── */
+.pod-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px; }
+.pod-card { background: #fff; border: 0.5px solid var(--border);
+            border-radius: var(--radius-lg); padding: 16px;
+            cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+.pod-card:hover { border-color: var(--navy); box-shadow: 0 2px 8px rgba(0,98,114,.12); }
+.pod-card .pc-name  { font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
+.pod-card .pc-score { font-size: 26px; font-weight: 500; margin-bottom: 2px; }
+.pod-card .pc-label { font-size: 11px; margin-bottom: 10px; }
+.pod-card .pc-bar   { height: 4px; border-radius: 2px; background: var(--bg2); margin-bottom: 10px; }
+.pod-card .pc-bar-fill { height: 100%; border-radius: 2px; }
+.pod-card .pc-kpis  { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; }
+.pod-card .pc-kpi   { font-size: 11px; color: var(--text2);
+                       display: flex; justify-content: space-between; }
+.pod-card .pc-kpi span:last-child { font-weight: 500; color: var(--text); }
+
+/* ── POD DETAIL ── */
+.pod-detail { display: none; }
+.back-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+            color: var(--text2); cursor: pointer; border: 0.5px solid var(--border);
+            border-radius: var(--radius); padding: 5px 12px; background: none;
+            margin-bottom: 14px; }
+.back-btn:hover { background: var(--bg2); }
+.pd-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.pd-header h2 { font-size: 18px; font-weight: 500; color: var(--text); }
+.insight-box { background: var(--bg2); border-radius: var(--radius); padding: 12px 14px; margin-bottom: 16px; }
+.insight-box .ib-title { font-size: 11px; font-weight: 600; color: var(--text2);
+                          text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+.insight-item { display: flex; gap: 8px; padding: 4px 0;
+                border-bottom: 0.5px solid var(--border); font-size: 12px; }
+.insight-item:last-child { border-bottom: none; }
+.dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.dot-g { background: #059669; } .dot-r { background: #DC2626; } .dot-a { background: #D97706; }
+.pd-kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px,1fr));
+               gap: 8px; margin-bottom: 20px; }
+.pd-kpi-card { background: #fff; border: 0.5px solid var(--border);
+               border-radius: var(--radius); padding: 10px 12px; }
+.pd-kpi-card .pk-label { font-size: 11px; color: var(--text2); margin-bottom: 3px; }
+.pd-kpi-card .pk-val   { font-size: 16px; font-weight: 500; }
+.pd-kpi-card .pk-trend { font-size: 11px; margin-top: 2px; }
+
+/* ── MANUAL INPUTS MODAL ── */
+.modal-overlay { display: none; position: fixed; inset: 0;
+                 background: rgba(0,0,0,.35); z-index: 200;
+                 align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal { background: #fff; border-radius: var(--radius-lg); padding: 24px;
+         width: 480px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
+.modal h2 { font-size: 16px; font-weight: 500; margin-bottom: 4px; }
+.modal p  { font-size: 12px; color: var(--text2); margin-bottom: 16px; }
+.modal-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.modal-group { display: flex; flex-direction: column; gap: 4px; }
+.modal-group label { font-size: 11px; font-weight: 500; color: var(--text2); }
+.modal-group input { border: 0.5px solid var(--border); border-radius: var(--radius);
+                      padding: 6px 8px; font-size: 12px; color: var(--text); background: #fff; }
+.modal-group input:focus { outline: none; border-color: var(--navy); }
+.modal-section { font-size: 12px; font-weight: 600; color: var(--text2);
+                 text-transform: uppercase; letter-spacing: .05em;
+                 margin-bottom: 8px; margin-top: 4px; }
+.modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+.btn-primary { padding: 7px 16px; background: var(--navy); color: #fff;
+               border: none; border-radius: var(--radius); font-size: 12px;
+               font-weight: 500; cursor: pointer; }
+.btn-primary:hover { background: #2a4a6b; }
+.btn-secondary { padding: 7px 16px; background: none; color: var(--text2);
+                 border: 0.5px solid var(--border); border-radius: var(--radius);
+                 font-size: 12px; cursor: pointer; }
+.btn-secondary:hover { background: var(--bg2); }
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<div class="header">
+  <div class="header-left">
+    <div class="aurigo-logo">
+      <span>aurigo<sup>°</sup></span>
+    </div>
+    <div class="header-divider"></div>
+    <div>
+      <h1>Aurigo Product Engineering KPI Dashboard</h1>
+      <p id="headerSubtitle">Loading...</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="last-updated" id="lastUpdated">Not loaded</span>
+    <button class="btn-update" id="updateBtn" onclick="loadData()">
+      <span id="updateIcon">&#8635;</span>
+      <span id="updateLabel">Update Dashboard</span>
+    </button>
+    <button class="btn-update" id="refreshBtn" onclick="triggerADORefresh()" style="background:rgba(255,255,255,.08)" title="Pull fresh data from ADO via GitHub Actions">
+      <span id="refreshIcon">&#9652;</span>
+      <span id="refreshLabel">Refresh from ADO</span>
+    </button>
+    <button class="btn-update" onclick="openManualInputs()" style="background:rgba(255,255,255,.08)">
+      &#9998; Manual Inputs
+    </button>
+    <button class="btn-update" onclick="clearGHToken()" style="background:rgba(255,255,255,.05);font-size:11px" title="Clear saved GitHub token from session">
+      &#128274; Clear Token
+    </button>
+  </div>
+</div>
+
+<!-- ── TABS ── -->
+<div class="tabs">
+  <div class="tab active" id="tab-org"  onclick="switchTab('org')">Org Summary</div>
+  <div class="tab"        id="tab-pods" onclick="switchTab('pods')">Pod View</div>
+</div>
+
+<!-- ── CONTENT ── -->
+<div class="content">
+
+  <!-- STATUS BANNER -->
+  <div class="banner banner-info" id="banner">
+    <span>&#9432;</span>
+    <span id="bannerMsg">Click "Refresh from ADO" to pull live data from Azure DevOps, or "Update Dashboard" to reload from existing CSVs.</span>
+  </div>
+
+  <!-- ═══════════════════════════════════ ORG TAB ═══════════════════════════ -->
+  <div id="orgTab">
+
+  <!-- TIME CONTROLS -->
+  <div class="time-bar">
+    <span class="tl">View:</span>
+    <div class="seg">
+      <button id="btnMonth"   class="active" onclick="setMode('month')">Monthly</button>
+      <button id="btnQuarter" onclick="setMode('quarter')">Quarterly</button>
+    </div>
+    <div class="divider-v" id="pillDivider"></div>
+    <select id="monthSelect" class="period-select" onchange="selectMonth(parseInt(this.value))"></select>
+    <select id="quarterSelect" class="period-select" onchange="selectQuarter(parseInt(this.value))" style="display:none"></select>
+  </div>
+
+    <!-- MONTHLY VIEW -->
+    <div id="monthlyView">
+
+      <!-- ORG HEALTH SCORE BANNER -->
+      <div id="orgHealthBanner" style="
+        display:flex; align-items:stretch; gap:10px;
+        margin-bottom:16px; flex-wrap:wrap;">
+
+        <!-- Big score card -->
+        <div style="
+          background:#fff; border:0.5px solid var(--border);
+          border-radius:var(--radius-lg); padding:16px 24px;
+          display:flex; align-items:center; gap:20px; min-width:220px;">
+          <div>
+            <div style="font-size:11px;font-weight:600;color:var(--text2);
+                        text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">
+              Org Health Score
+            </div>
+            <div style="display:flex;align-items:baseline;gap:6px">
+              <span id="ohScore" style="font-size:40px;font-weight:500;line-height:1;color:var(--text)">—</span>
+              <span style="font-size:18px;color:var(--text2)">/ 100</span>
+            </div>
+            <div id="ohLabel" style="font-size:12px;font-weight:500;margin-top:4px"></div>
+          </div>
+          <!-- Mini donut ring -->
+          <div style="position:relative;width:64px;height:64px;flex-shrink:0">
+            <canvas id="ohDonut" width="64" height="64"></canvas>
+          </div>
+        </div>
+
+        <!-- Pill counters -->
+        <div style="
+          background:#fff; border:0.5px solid var(--border);
+          border-radius:var(--radius-lg); padding:16px 20px;
+          display:flex; align-items:center; gap:24px; flex:1; min-width:280px;">
+          <div style="text-align:center">
+            <div id="ohHealthy" style="font-size:32px;font-weight:500;color:var(--green)">—</div>
+            <div style="font-size:11px;font-weight:600;color:var(--green);
+                        background:var(--green-bg);border-radius:10px;
+                        padding:2px 10px;margin-top:4px">🟢 Healthy</div>
+          </div>
+          <div style="width:0.5px;height:40px;background:var(--border)"></div>
+          <div style="text-align:center">
+            <div id="ohWatch" style="font-size:32px;font-weight:500;color:var(--amber)">—</div>
+            <div style="font-size:11px;font-weight:600;color:var(--amber);
+                        background:var(--amber-bg);border-radius:10px;
+                        padding:2px 10px;margin-top:4px">🟡 Watch</div>
+          </div>
+          <div style="width:0.5px;height:40px;background:var(--border)"></div>
+          <div style="text-align:center">
+            <div id="ohRisk" style="font-size:32px;font-weight:500;color:var(--red)">—</div>
+            <div style="font-size:11px;font-weight:600;color:var(--red);
+                        background:var(--red-bg);border-radius:10px;
+                        padding:2px 10px;margin-top:4px">🔴 At Risk</div>
+          </div>
+        </div>
+
+        <!-- At risk / strengths quick view -->
+        <div style="
+          background:#fff; border:0.5px solid var(--border);
+          border-radius:var(--radius-lg); padding:16px 18px;
+          flex:1; min-width:240px;">
+          <div style="font-size:11px;font-weight:600;color:var(--text2);
+                      text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">
+            Needs Attention
+          </div>
+          <div id="ohAtRisk" style="font-size:12px;color:var(--red);line-height:1.7"></div>
+        </div>
+
+        <div style="
+          background:#fff; border:0.5px solid var(--border);
+          border-radius:var(--radius-lg); padding:16px 18px;
+          flex:1; min-width:240px;">
+          <div style="font-size:11px;font-weight:600;color:var(--text2);
+                      text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">
+            Strengths
+          </div>
+          <div id="ohStrengths" style="font-size:12px;color:var(--green);line-height:1.7"></div>
+        </div>
+
+      </div><!-- /orgHealthBanner -->
+
+      <p class="section-label" id="summaryLabel">KPI Summary — Mar-26</p>
+      <div id="orgKpiAccordions"></div>
+      <p class="section-label" id="mScorecardLabel">KPI Scorecard</p>
+      <div class="scorecard-wrap" style="margin-bottom:20px">
+        <table>
+          <thead id="mTableHead"></thead>
+          <tbody id="mTableBody"></tbody>
+        </table>
+      </div>
+      <div id="orgChartAccordions"></div>
+    </div>
+
+    <!-- QUARTERLY VIEW -->
+    <div id="quarterlyView" style="display:none">
+
+      <!-- ORG HEALTH SCORE BANNER (reuses same element IDs, re-rendered by renderOrgHealth) -->
+      <div id="orgHealthBannerQ" style="
+        display:flex; align-items:stretch; gap:10px;
+        margin-bottom:16px; flex-wrap:wrap;">
+
+        <div style="
+          background:#fff; border:0.5px solid var(--border);
+          border-radius:var(--radius-lg); padding:16px 24px;
+          display:flex; align-items:center; gap:20px; min-width:220px;">
+          <div>
+            <div style="font-size:11px;font-weight:600;color:var(--text2);
+                        text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">
+              Org Health Score
+            </div>
+            <div style="display:flex;align-items:baseline;gap:6px">
+              <span id="ohScoreQ" style="font-size:40px;font-weight:500;line-height:1;color:var(--text)">—</span>
+              <span style="font-size:18px;color:var(--text2)">/ 100</span>
+            </div>
+            <div id="ohLabelQ" style="font-size:12px;font-weight:500;margin-top:4px"></div>
+          </div>
+          <div style="position:relative;width:64px;height:64px;flex-shrink:0">
+            <canvas id="ohDonutQ" width="64" height="64"></canvas>
+          </div>
+        </div>
+
+        <div style="
+          background:#fff; border:0.5px solid var(--border);
+          border-radius:var(--radius-lg); padding:16px 20px;
+          display:flex; align-items:center; gap:24px; flex:1; min-width:280px;">
+          <div style="text-align:center">
+            <div id="ohHealthyQ" style="font-size:32px;font-weight:500;color:var(--green)">—</div>
+            <div style="font-size:11px;font-weight:600;color:var(--green);
+                        background:var(--green-bg);border-radius:10px;
+                        padding:2px 10px;margin-top:4px">🟢 Healthy</div>
+          </div>
+          <div style="width:0.5px;height:40px;background:var(--border)"></div>
+          <div style="text-align:center">
+            <div id="ohWatchQ" style="font-size:32px;font-weight:500;color:var(--amber)">—</div>
+            <div style="font-size:11px;font-weight:600;color:var(--amber);
+                        background:var(--amber-bg);border-radius:10px;
+                        padding:2px 10px;margin-top:4px">🟡 Watch</div>
+          </div>
+          <div style="width:0.5px;height:40px;background:var(--border)"></div>
+          <div style="text-align:center">
+            <div id="ohRiskQ" style="font-size:32px;font-weight:500;color:var(--red)">—</div>
+            <div style="font-size:11px;font-weight:600;color:var(--red);
+                        background:var(--red-bg);border-radius:10px;
+                        padding:2px 10px;margin-top:4px">🔴 At Risk</div>
+          </div>
+        </div>
+
+        <div style="
+          background:#fff; border:0.5px solid var(--border);
+          border-radius:var(--radius-lg); padding:16px 18px;
+          flex:1; min-width:240px;">
+          <div style="font-size:11px;font-weight:600;color:var(--text2);
+                      text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">
+            Needs Attention
+          </div>
+          <div id="ohAtRiskQ" style="font-size:12px;color:var(--red);line-height:1.7"></div>
+        </div>
+
+        <div style="
+          background:#fff; border:0.5px solid var(--border);
+          border-radius:var(--radius-lg); padding:16px 18px;
+          flex:1; min-width:240px;">
+          <div style="font-size:11px;font-weight:600;color:var(--text2);
+                      text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">
+            Strengths
+          </div>
+          <div id="ohStrengthsQ" style="font-size:12px;color:var(--green);line-height:1.7"></div>
+        </div>
+
+      </div><!-- /orgHealthBannerQ -->
+
+      <p class="section-label" id="qSummaryLabel">Quarter summary</p>
+      <div id="qKpiAccordions"></div>
+      <p class="section-label" id="qScorecardLabel">KPI scorecard</p>
+      <div class="scorecard-wrap">
+        <table>
+          <thead id="qTableHead"></thead>
+          <tbody id="qTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /orgTab -->
+
+  <!-- ═══════════════════════════════════ PODS TAB ═══════════════════════ -->
+  <div id="podsTab" style="display:none">
+
+    <!-- POD LIST -->
+    <div id="podListView">
+      <p class="section-label">All pods — click a card to drill down</p>
+      <div class="pod-grid" id="podGrid"></div>
+    </div>
+
+    <!-- POD DETAIL -->
+    <div class="pod-detail" id="podDetailView">
+
+      <!-- Back + header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+        <div style="display:flex;align-items:center;gap:14px;">
+          <button class="back-btn" onclick="showPodList()">&#8592; All Pods</button>
+          <h2 id="pdName" style="font-size:20px;font-weight:500;color:var(--text)"></h2>
+          <span id="pdScoreBadge" class="chip" style="font-size:12px;padding:4px 12px;"></span>
+        </div>
+        <!-- Mode toggle + dropdowns -->
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="seg">
+            <button id="pdBtnMonth" class="active" onclick="setPodMode('month')">Monthly</button>
+            <button id="pdBtnQuarter" onclick="setPodMode('quarter')">Quarterly</button>
+          </div>
+          <select id="pdMonthSelect" class="period-select" onchange="pdSelectMonth(parseInt(this.value))"></select>
+          <select id="pdQuarterSelect" class="period-select" onchange="pdSelectQuarter(parseInt(this.value))" style="display:none"></select>
+        </div>
+      </div>
+
+      <!-- POD HEALTH BANNER -->
+      <div id="pdHealthBanner" style="display:flex;align-items:stretch;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+
+        <!-- Score card -->
+        <div style="background:#fff;border:0.5px solid var(--border);border-radius:var(--radius-lg);
+                    padding:16px 24px;display:flex;align-items:center;gap:20px;min-width:220px;">
+          <div>
+            <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;
+                        letter-spacing:.06em;margin-bottom:4px">Pod Health Score</div>
+            <div style="display:flex;align-items:baseline;gap:6px">
+              <span id="pdScore" style="font-size:40px;font-weight:500;line-height:1;">—</span>
+              <span style="font-size:18px;color:var(--text2)">/ 100</span>
+            </div>
+            <div id="pdScoreLabel" style="font-size:12px;font-weight:500;margin-top:4px"></div>
+          </div>
+          <div style="position:relative;width:64px;height:64px;flex-shrink:0">
+            <canvas id="pdDonut" width="64" height="64"></canvas>
+          </div>
+        </div>
+
+        <!-- Period health trend card — updates dynamically -->
+        <div style="background:#fff;border:0.5px solid var(--border);border-radius:var(--radius-lg);
+                    padding:16px 20px;display:flex;align-items:center;gap:16px;flex:1;min-width:260px;">
+          <div id="pdTrendCardLabel" style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;
+                      letter-spacing:.06em;white-space:nowrap;writing-mode:vertical-lr;
+                      transform:rotate(180deg);align-self:center;min-height:60px;
+                      display:flex;align-items:center;justify-content:center;">Health Trend</div>
+          <div id="pdMonthScores" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;flex:1;"></div>
+        </div>
+
+        <!-- At Risk panel -->
+        <div style="background:#fff;border:0.5px solid var(--border);border-radius:var(--radius-lg);
+                    padding:16px 18px;flex:1;min-width:200px;">
+          <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;
+                      letter-spacing:.06em;margin-bottom:8px">Needs Attention</div>
+          <div id="pdAtRisk" style="font-size:12px;color:var(--red);line-height:1.8"></div>
+        </div>
+
+        <!-- Strengths panel -->
+        <div style="background:#fff;border:0.5px solid var(--border);border-radius:var(--radius-lg);
+                    padding:16px 18px;flex:1;min-width:200px;">
+          <div style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;
+                      letter-spacing:.06em;margin-bottom:8px">Strengths</div>
+          <div id="pdStrengths" style="font-size:12px;color:var(--green);line-height:1.8"></div>
+        </div>
+
+      </div><!-- /pdHealthBanner -->
+
+      <!-- KEY INSIGHTS -->
+      <div class="insight-box" style="margin-bottom:16px">
+        <div class="ib-title">Key Insights</div>
+        <div id="pdInsights"></div>
+      </div>
+
+      <!-- KPI SNAPSHOT + TREND CHARTS as accordions -->
+      <p class="section-label" id="pdKpiLabel">KPI Snapshot</p>
+      <div id="pdKpiCards"></div>
+      <div id="pdCharts"></div>
+
+    </div>
+
+  </div><!-- /podsTab -->
+
+</div><!-- /content -->
+
+<!-- ── MANUAL INPUTS PANEL (full-screen overlay) ── -->
+<div id="manualPanel" style="display:none;position:fixed;inset:0;background:#F8FAFC;z-index:300;overflow-y:auto;">
+  <div style="max-width:1100px;margin:0 auto;padding:24px;">
+
+    <!-- Panel header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div>
+        <h2 style="font-size:18px;font-weight:500;color:var(--text)">Manual Data Entry</h2>
+        <p style="font-size:12px;color:var(--text2);margin-top:2px">
+          AI Adoption · AI Productivity · Product Adoption · Time to First Usage — per pod per month.
+          All changes apply instantly to org and pod scores, trends and charts.
+        </p>
+      </div>
+      <button onclick="closeManualInputs()" style="
+        padding:8px 18px;background:var(--navy);color:#fff;
+        border:none;border-radius:var(--radius);font-size:13px;
+        font-weight:500;cursor:pointer;">✕ Close</button>
+    </div>
+
+    <!-- Filter row: Month selector + pod selector -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+      <span style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">Month</span>
+      <div id="miMonthPills" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+      <div style="width:0.5px;height:22px;background:var(--border);margin:0 4px;"></div>
+      <span style="font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.06em">Pod</span>
+      <div id="miPodPills" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+
+    <!-- Entry table -->
+    <div style="background:#fff;border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:16px;">
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="background:var(--bg2);">
+            <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:600;color:var(--text2);
+                       text-transform:uppercase;letter-spacing:.05em;border-bottom:0.5px solid var(--border);width:220px">
+              KPI</th>
+            <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:600;color:var(--text2);
+                       text-transform:uppercase;letter-spacing:.05em;border-bottom:0.5px solid var(--border);width:120px">
+              Scope</th>
+            <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:600;color:var(--text2);
+                       text-transform:uppercase;letter-spacing:.05em;border-bottom:0.5px solid var(--border);width:80px">
+              Unit</th>
+            <th id="miColHeader" style="padding:10px 16px;text-align:center;font-size:12px;font-weight:600;
+                       color:var(--navy);border-bottom:0.5px solid var(--border);">
+              Value</th>
+            <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:600;color:var(--text2);
+                       text-transform:uppercase;letter-spacing:.05em;border-bottom:0.5px solid var(--border)">
+              Q1 Trend</th>
+          </tr>
+        </thead>
+        <tbody id="miTableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- All-months grid view -->
+    <div style="background:#fff;border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;">
+      <div style="padding:12px 16px;border-bottom:0.5px solid var(--border);background:var(--bg2);
+                  font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;">
+        All Months Overview — <span id="miGridPodLabel">All Pods</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;" id="miGridTable">
+          <thead id="miGridHead"></thead>
+          <tbody id="miGridBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════════════════
+const MONTHS = ['Jan-26','Feb-26','Mar-26','Apr-26','May-26','Jun-26',
+                'Jul-26','Aug-26','Sep-26','Oct-26','Nov-26','Dec-26'];
+const QUARTERS = {
+  'Q1 2026': [0,1,2],
+  'Q2 2026': [3,4,5],
+  'Q3 2026': [6,7,8],
+  'Q4 2026': [9,10,11],
+};
+const QUARTER_KEYS = Object.keys(QUARTERS);
+let ACTIVE_MONTHS = ['Jan-26','Feb-26','Mar-26']; // updated dynamically after data load
+const PROJECTS = {
+  'AI ML COE':                 'Lumina',
+  'API_Integrations':          'API-IDM',
+  'Aurigo Essentials 2.0':     'Build',
+  'Aurigo MW Modernization':   'MW UI',
+  'Aurigo Plan 2.0':           'Plan',
+  'AurigoMasterworks':         'QPR',
+  'MW Platform 2.0':           'Aurigo Reporting',
+  'MWPRO_Configplus':          'Configplus',
+  'Mobile-NexGen-Aurigo-Build':'Mobile'
+};
+const POD_NAMES = Object.values(PROJECTS);
+const C = { blue:'#006272', amber:'#854f0b', green:'#059669', red:'#DC2626', gray:'#888780' };
+
+// Global display formatter — always 1 decimal place
+const fmt1 = v => (v === null || v === undefined) ? null : +parseFloat(v).toFixed(1);
+
+// ── GitHub constants (declared early so readCSV can use them) ─────────
+const GH_OWNER    = 'manishwali';
+const GH_REPO     = 'Experiment';
+const GH_WORKFLOW = 'refresh.yml';
+const GH_RAW_BASE = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/main`;
+
+const KPI_META = [
+  {key:'ttd',    label:'Time to Demo',         unit:'d',    dir:'down', tgt:90,     tgtLabel:'< 90d',      group:'corporate'},
+  {key:'adopt',  label:'Product Adoption',      unit:'%',    dir:'up',   tgt:80,     tgtLabel:'≥ 80%',      group:'corporate'},
+  {key:'aiAdopt',label:'AI Adoption',           unit:'%',    dir:'up',   tgt:90,     tgtLabel:'≥ 90%',      group:'corporate'},
+  {key:'dv',     label:'Discovery Velocity',    unit:'d',    dir:'down', tgt:60,     tgtLabel:'< 60d',      group:'overall'},
+  {key:'sr',     label:'Sprint Readiness',      unit:'%',    dir:'up',   tgt:80,     tgtLabel:'≥ 80%',      group:'overall'},
+  {key:'fv',     label:'Feature Velocity',      unit:' SP',  dir:'up',   tgt:800,    tgtLabel:'> 800 SP',   group:'overall'},
+  {key:'align',  label:'Roadmap Alignment',     unit:'%',    dir:'up',   tgt:80,     tgtLabel:'≥ 80%',      group:'overall'},
+  {key:'t2fu',   label:'Time to First Usage',   unit:'d',    dir:'down', tgt:30,     tgtLabel:'< 30d',      group:'overall'},
+  {key:'bv',     label:'Business Value Score',  unit:'/5',   dir:'up',   tgt:3.5,    tgtLabel:'≥ 3.5/5',   group:'overall'},
+  {key:'aiProd', label:'AI Productivity',       unit:' SP/M',dir:'trend',tgt:null,   tgtLabel:'Trend ↑',   group:'engineering'},
+  {key:'rq',     label:'Release Quality',       unit:'%',    dir:'up',   tgt:95,     tgtLabel:'≥ 95%',      group:'engineering'},
+  {key:'td',     label:'Tech Debt',             unit:'%',    dir:'range',tgt:[20,30],tgtLabel:'20–30%',    group:'engineering'},
+];
+
+const KPI_GROUPS = [
+  { key:'corporate',   label:'Corporate KPIs',   color:'#185fa5', bg:'#E6F1FB', keys:['ttd','adopt','aiAdopt'] },
+  { key:'overall',     label:'Overall KPIs',      color:'#059669', bg:'#D1FAE5', keys:['dv','sr','fv','align','t2fu','bv'] },
+  { key:'engineering', label:'Engineering KPIs',  color:'#854f0b', bg:'#FEF3C7', keys:['aiProd','rq','td'] },
+];
+
+// Dynamic pod insights — generated from live data, not hardcoded
+function getPodInsights(pName, pd, mi) {
+  // mi = selected month index, passed in from caller
+  if (mi === undefined) {
+    mi = ACTIVE_MONTHS.length > 0
+      ? MONTHS.indexOf(ACTIVE_MONTHS[ACTIVE_MONTHS.length - 1]) : 2;
+  }
+  const insights = [];
+  const kpis = KPI_META;
+
+  // FV trend
+  const fv0 = pd['fv_0'], fv2 = pd['fv_'+mi];
+  if (fv0 !== null && fv2 !== null) {
+    const pct = Math.round((fv2-fv0)/fv0*100);
+    if (fv2 >= 200) insights.push({t:'g', m:`Feature Velocity ${fv2} SP Mar — above 200 SP pod target (${pct>0?'+':''}${pct}% Q1).`});
+    else insights.push({t: fv2 >= fv0 ? 'a' : 'r', m:`Feature Velocity ${fv2} SP Mar — below 200 SP pod target (${pct>0?'+':''}${pct}% Q1).`});
+  }
+
+  // DV
+  const dv2 = pd['dv_'+mi];
+  if (dv2 !== null) {
+    if (dv2 <= 60) insights.push({t:'g', m:`Discovery Velocity ${dv2}d — within <60d target.`});
+    else insights.push({t:'r', m:`Discovery Velocity ${dv2}d — above 60d target. Reduce items without CT_InProgress.`});
+  }
+
+  // Alignment
+  const al2 = pd['align_'+mi];
+  if (al2 !== null) {
+    if (al2 >= 80) insights.push({t:'g', m:`Roadmap Alignment ${al2}% — above 80% target.`});
+    else insights.push({t:'r', m:`Roadmap Alignment ${al2}% — below 80% target. Link PBIs to parent Features.`});
+  }
+
+  // Sprint Readiness
+  const sr2 = pd['sr_'+mi];
+  if (sr2 !== null) {
+    if (sr2 >= 80) insights.push({t:'g', m:`Sprint Readiness ${sr2}% — above 80% target.`});
+    else insights.push({t:'r', m:`Sprint Readiness ${sr2}% — below 80% target. Ensure CT_InProgress is set before sprint start.`});
+  }
+
+  // BV
+  const bv2 = pd['bv_'+mi];
+  if (bv2 !== null) {
+    if (bv2 >= 3.5) insights.push({t:'g', m:`BV Score ${bv2}/5 — above 3.5 target.`});
+    else insights.push({t:'a', m:`BV Score ${bv2}/5 — below 3.5 target. Ensure BV set on all Done/Closed Features in ADO.`});
+  }
+
+  // TTD
+  const ttd2 = pd['ttd_'+mi];
+  if (ttd2 !== null) {
+    if (ttd2 <= 90) insights.push({t:'g', m:`Time to Demo ${ttd2}d — within <90d target.`});
+    else insights.push({t:'a', m:`Time to Demo ${ttd2}d — above 90d target.`});
+  }
+
+  // T2FU
+  const t2fu2 = pd['t2fu_'+mi];
+  if (t2fu2 !== null) {
+    insights.push({t: t2fu2 <= 30 ? 'g' : 'a', m:`Time to First Usage ${t2fu2}d — ${t2fu2<=30?'within':'above'} 30d target.`});
+  }
+
+  return insights.slice(0, 4); // show top 4
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════════
+let state = {
+  loaded: false,
+  mode: 'month',
+  monthIdx: 2,
+  quarterIdx: 0,
+  orgData: {},
+  podData: {},
+  manualInputs: {}   // populated by initManualInputs()
+
+};
+
+let orgCharts = {};
+
+// ═══════════════════════════════════════════════════════════════════════
+// CSV READER
+// ═══════════════════════════════════════════════════════════════════════
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(',').map(h => h.replace(/"/g,'').trim());
+  return lines.slice(1).map(line => {
+    const vals = line.match(/(".*?"|[^,]+|(?<=,)(?=,)|(?<=,)$|^(?=,))/g) || [];
+    const obj = {};
+    headers.forEach((h, i) => {
+      obj[h] = (vals[i] || '').replace(/^"|"$/g,'').trim();
+    });
+    return obj;
+  });
+}
+
+// ── Data source configuration ─────────────────────────────────────────
+const SP_HOST   = 'https://aurigo.sharepoint.com';
+const SP_FOLDER = '/sites/ProductManagement/KPI Dashboard';
+
+function spFileUrl(filename) {
+  const rel = `${SP_FOLDER}/${filename}`;
+  return `${SP_HOST}${SP_FOLDER}/_api/web/GetFileByServerRelativeUrl('${rel}')/$value`;
+}
+
+function isSharePoint() {
+  return window.location.hostname.includes('sharepoint.com');
+}
+
+function isGitHubPages() {
+  return window.location.hostname.includes('github.io');
+}
+
+async function readCSV(filename) {
+  if (isSharePoint()) {
+    // SharePoint: use REST API with session credentials
+    const url = spFileUrl(filename);
+    const resp = await fetch(url, {
+      credentials: 'include',
+      headers: { Accept: 'text/plain' }
+    });
+    if (!resp.ok) throw new Error(`SharePoint fetch failed for ${filename} (${resp.status}).`);
+    return parseCSV(await resp.text());
+  } else if (isGitHubPages()) {
+    // GitHub Pages: read CSVs from raw.githubusercontent.com (same repo)
+    const url = `${GH_RAW_BASE}/${filename}?t=${Date.now()}`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`GitHub fetch failed for ${filename} (${resp.status}).`);
+    return parseCSV(await resp.text());
+  } else {
+    // Local development: same-folder fetch
+    const resp = await fetch(filename);
+    if (!resp.ok) throw new Error(`Cannot read ${filename}`);
+    return parseCSV(await resp.text());
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// LOAD & CALCULATE
+// ═══════════════════════════════════════════════════════════════════════
+async function loadData() {
+  const src = isSharePoint() ? 'SharePoint' : isGitHubPages() ? 'GitHub repo' : 'local folder';
+  setBanner('info', `Loading CSVs from ${src}...`);
+  setUpdateBtn(true);
+
+  try {
+    const [pbis, bugs, features, sprints] = await Promise.all([
+      readCSV('KPI_PBIs.csv'),
+      readCSV('KPI_Bugs.csv'),
+      readCSV('KPI_Features.csv'),
+      readCSV('KPI_Sprints.csv'),
+    ]);
+
+    calculateKPIs(pbis, bugs, features, sprints);
+    state.loaded = true;
+    initPills();  // reinit dropdowns now ACTIVE_MONTHS is correct
+    state.monthIdx = MONTHS.indexOf(ACTIVE_MONTHS[ACTIVE_MONTHS.length - 1]);
+    const ms = document.getElementById('monthSelect');
+    if (ms) ms.value = state.monthIdx;
+    setBanner('success', `Dashboard updated from ${src}. ${pbis.length} PBIs · ${bugs.length} bugs · ${features.length} features · ${sprints.length} sprints.`);
+    document.getElementById('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    renderAll();
+  } catch(e) {
+    setBanner('error', `Could not load CSV files from ${src}. ${e.message}`);
+    if (!state.loaded) loadSampleData();
+  }
+
+  setUpdateBtn(false);
+}
+
+// Jan-Mar (indices 0-2) are static/protected — CSV refresh only writes Apr onwards
+const STATIC_MONTHS = 3; // first 3 months are locked from CSV overwrites
+
+function calculateKPIs(pbis, bugs, features, sprints) {
+  // Start by loading static Q1 data as the base, then layer CSV data on top for Apr+
+  loadSampleData();
+  const staticOrg = JSON.parse(JSON.stringify(state.orgData));
+  const staticPod = JSON.parse(JSON.stringify(state.podData));
+
+  const N = MONTHS.length; // 12
+  const pod = {};
+  POD_NAMES.forEach(p => {
+    pod[p] = {
+      fv:       Array(N).fill(0), dvSum:    Array(N).fill(0), dvCnt:    Array(N).fill(0),
+      alignSP:  Array(N).fill(0), tdSP:     Array(N).fill(0), totalSP:  Array(N).fill(0),
+      prodBugs: Array(N).fill(0), totalBugs:Array(N).fill(0),
+      srReady:  Array(N).fill(0), srTotal:  Array(N).fill(0),
+      rqDefect: Array(N).fill(0), rqBugTotal:Array(N).fill(0),
+      ttdSum:   Array(N).fill(0), ttdCnt:   Array(N).fill(0),
+      bvSum:    Array(N).fill(0), bvCnt:    Array(N).fill(0),
+      t2fuSum:  Array(N).fill(0), t2fuCnt:  Array(N).fill(0)
+    };
+  });
+
+  // Sprint lookup: iterationPath → {project, createdDate, month}
+  const sprintMap = {};
+  sprints.forEach(s => {
+    const pName = PROJECTS[s.Project] || s.Project;
+    if (!pName) return;
+    sprintMap[s.IterationPath] = { pod: pName, created: s.CreatedDate, month: s.Month };
+  });
+
+  // PBIs — skip Jan-Mar (mi < STATIC_MONTHS), those months are locked as static
+  pbis.forEach(r => {
+    const pName = PROJECTS[r.Project];
+    if (!pName || !pod[pName]) return;
+    const mi = MONTHS.indexOf(r.Month);
+    if (mi < STATIC_MONTHS) return; // protect Jan-Mar static data
+    if (mi < 0) return;
+    const sp = parseFloat(r.StoryPoints) || 0;
+
+    // Feature Velocity
+    pod[pName].fv[mi] += sp;
+    pod[pName].totalSP[mi] += sp;
+
+    // Discovery Velocity = CT_InProgress - CreatedDate (cap at 365d)
+    if (r.CT_InProgress && r.CreatedDate) {
+      const ct = new Date(r.CT_InProgress), cd = new Date(r.CreatedDate);
+      const days = (ct - cd) / 86400000;
+      if (days > 0 && days <= 365) { pod[pName].dvSum[mi] += days; pod[pName].dvCnt[mi]++; }
+    }
+
+    // Roadmap Alignment
+    if (r.HasParent === '1') pod[pName].alignSP[mi] += sp;
+
+    // Tech Debt
+    if (r.ValueArea === 'Architectural') pod[pName].tdSP[mi] += sp;
+
+    // Sprint Readiness — CT_InProgress populated = sprint-ready
+    pod[pName].srTotal[mi]++;
+    if (r.CT_InProgress) pod[pName].srReady[mi]++;
+  });
+
+  // Bugs — skip Jan-Mar static months
+  const prodOrigins = ['Customer','Solution Engineering','Sustenance Engineering'];
+  bugs.forEach(r => {
+    const pName = PROJECTS[r.Project];
+    if (!pName || !pod[pName]) return;
+    const mi = MONTHS.indexOf(r.Month);
+    if (mi < STATIC_MONTHS) return;
+    if (mi < 0) return;
+    pod[pName].totalBugs[mi]++;
+    if (prodOrigins.includes(r.BugOrigin)) pod[pName].prodBugs[mi]++;
+  });
+
+  // Features — skip Jan-Mar static months
+  features.forEach(r => {
+    const pName = PROJECTS[r.Project];
+    if (!pName || !pod[pName]) return;
+    const mi = MONTHS.indexOf(r.Month);
+    if (mi < STATIC_MONTHS) return;
+    if (mi < 0) return;
+    if (r.TTD_Days && parseFloat(r.TTD_Days) > 0) {
+      pod[pName].ttdSum[mi] += parseFloat(r.TTD_Days);
+      pod[pName].ttdCnt[mi]++;
+    }
+    if (r.BV_Total_Score && parseFloat(r.BV_Total_Score) > 0) {
+      pod[pName].bvSum[mi] += parseFloat(r.BV_Total_Score);
+      pod[pName].bvCnt[mi]++;
+    }
+    if (r.T2FU_Days && parseFloat(r.T2FU_Days) > 0) {
+      pod[pName].t2fuSum[mi] += parseFloat(r.T2FU_Days);
+      pod[pName].t2fuCnt[mi]++;
+    }
+  });
+
+  // Build podData + orgData — 12 months
+  const orgAcc = {
+    fv:       Array(N).fill(0), dvSum:    Array(N).fill(0), dvCnt:    Array(N).fill(0),
+    alignSP:  Array(N).fill(0), tdSP:     Array(N).fill(0), totalSP:  Array(N).fill(0),
+    prodBugs: Array(N).fill(0), totalBugs:Array(N).fill(0),
+    srReady:  Array(N).fill(0), srTotal:  Array(N).fill(0),
+    ttdSum:   Array(N).fill(0), ttdCnt:   Array(N).fill(0),
+    bvSum:    Array(N).fill(0), bvCnt:    Array(N).fill(0),
+    t2fuSum:  Array(N).fill(0), t2fuCnt:  Array(N).fill(0)
+  };
+
+  state.podData = {};
+  POD_NAMES.forEach(p => {
+    const d = pod[p];
+    const pd = { name: p };
+    MONTHS.forEach((_, mi) => {
+      pd['fv_'+mi]     = d.fv[mi];
+      pd['dv_'+mi]     = d.dvCnt[mi] > 0 ? +(d.dvSum[mi]/d.dvCnt[mi]).toFixed(1) : null;
+      pd['align_'+mi]  = d.totalSP[mi] > 0 ? +(d.alignSP[mi]/d.totalSP[mi]*100).toFixed(1) : null;
+      pd['td_'+mi]     = d.totalSP[mi] > 0 ? +(d.tdSP[mi]/d.totalSP[mi]*100).toFixed(1) : null;
+      pd['defect_'+mi] = d.totalBugs[mi] > 0 ? +(d.prodBugs[mi]/d.totalBugs[mi]*100).toFixed(1) : 0;
+      pd['rq_'+mi]     = +(100 - (d.totalBugs[mi]>0?d.prodBugs[mi]/d.totalBugs[mi]*100:0)).toFixed(1);
+      pd['sr_'+mi]     = d.srTotal[mi] > 0 ? +(d.srReady[mi]/d.srTotal[mi]*100).toFixed(1) : null;
+      pd['ttd_'+mi]    = d.ttdCnt[mi]  > 0 ? +(d.ttdSum[mi]/d.ttdCnt[mi]).toFixed(1)   : null;
+      pd['bv_'+mi]     = d.bvCnt[mi]   > 0 ? +(d.bvSum[mi]/d.bvCnt[mi]).toFixed(1)    : null;
+      pd['t2fu_'+mi]   = d.t2fuCnt[mi] > 0 ? +(d.t2fuSum[mi]/d.t2fuCnt[mi]).toFixed(1): null;
+      pd['aiAdopt_'+mi]= getManualVal('aiAdopt', '_org', mi);
+      pd['aiProd_'+mi] = getManualVal('aiProd',  '_org', mi);
+      const adoptMeta = MANUAL_KPIS.find(k=>k.key==='adopt');
+      pd['adopt_'+mi]  = adoptMeta.pods.includes(p) ? getManualVal('adopt', p, mi) : null;
+      const t2fuMeta = MANUAL_KPIS.find(k=>k.key==='t2fu');
+      pd['t2fu_'+mi]   = t2fuMeta.pods.includes(p) ? getManualVal('t2fu', p, mi) : (pd['t2fu_'+mi] ?? null);
+
+      orgAcc.fv[mi]       += d.fv[mi];
+      orgAcc.dvSum[mi]    += d.dvSum[mi];
+      orgAcc.dvCnt[mi]    += d.dvCnt[mi];
+      orgAcc.alignSP[mi]  += d.alignSP[mi];
+      orgAcc.tdSP[mi]     += d.tdSP[mi];
+      orgAcc.totalSP[mi]  += d.totalSP[mi];
+      orgAcc.prodBugs[mi] += d.prodBugs[mi];
+      orgAcc.totalBugs[mi]+= d.totalBugs[mi];
+      orgAcc.srReady[mi]  += d.srReady[mi];
+      orgAcc.srTotal[mi]  += d.srTotal[mi];
+      orgAcc.ttdSum[mi]   += d.ttdSum[mi];
+      orgAcc.ttdCnt[mi]   += d.ttdCnt[mi];
+      orgAcc.bvSum[mi]    += d.bvSum[mi];
+      orgAcc.bvCnt[mi]    += d.bvCnt[mi];
+      orgAcc.t2fuSum[mi]  += d.t2fuSum[mi];
+      orgAcc.t2fuCnt[mi]  += d.t2fuCnt[mi];
+    });
+
+    // Pod health score (▲=1, →=0.5, ▼=0 across active KPIs in Mar)
+    pd.score = calcPodScore(pd);
+    state.podData[p] = pd;
+  });
+
+  // Org rollup
+  const o = {};
+  MONTHS.forEach((_, mi) => {
+    o['fv_'+mi]      = orgAcc.fv[mi];
+    o['dv_'+mi]      = orgAcc.dvCnt[mi]>0 ? +(orgAcc.dvSum[mi]/orgAcc.dvCnt[mi]).toFixed(1) : null;
+    o['align_'+mi]   = orgAcc.totalSP[mi]>0 ? +(orgAcc.alignSP[mi]/orgAcc.totalSP[mi]*100).toFixed(1) : null;
+    o['td_'+mi]      = orgAcc.totalSP[mi]>0 ? +(orgAcc.tdSP[mi]/orgAcc.totalSP[mi]*100).toFixed(1) : null;
+    o['rq_'+mi]      = +(100-(orgAcc.totalBugs[mi]>0?orgAcc.prodBugs[mi]/orgAcc.totalBugs[mi]*100:0)).toFixed(1);
+    o['sr_'+mi]      = orgAcc.srTotal[mi]>0 ? +(orgAcc.srReady[mi]/orgAcc.srTotal[mi]*100).toFixed(1) : null;
+    o['aiAdopt_'+mi] = getManualVal('aiAdopt', '_org', mi);
+    o['aiProd_'+mi]  = getManualVal('aiProd',  '_org', mi);
+    // Org adopt = avg of Pendo pods with data
+    const adoptPods = MANUAL_KPIS.find(k=>k.key==='adopt').pods;
+    const adoptVals = adoptPods.map(p => getManualVal('adopt', p, mi)).filter(v=>v!==null);
+    o['adopt_'+mi] = adoptVals.length > 0
+      ? +(adoptVals.reduce((a,b)=>a+b,0)/adoptVals.length).toFixed(1) : null;
+    // T2FU org avg from Pendo pods
+    const t2fuPods = MANUAL_KPIS.find(k=>k.key==='t2fu').pods;
+    const t2fuManVals = t2fuPods.map(p => getManualVal('t2fu', p, mi)).filter(v=>v!==null);
+    if (t2fuManVals.length > 0) o['t2fu_'+mi] = +(t2fuManVals.reduce((a,b)=>a+b,0)/t2fuManVals.length).toFixed(1);
+    o['ttd_'+mi]     = orgAcc.ttdCnt[mi]  > 0 ? +(orgAcc.ttdSum[mi]/orgAcc.ttdCnt[mi]).toFixed(1)   : null;
+    o['bv_'+mi]      = orgAcc.bvCnt[mi]   > 0 ? +(orgAcc.bvSum[mi]/orgAcc.bvCnt[mi]).toFixed(1)    : null;
+    o['t2fu_'+mi]    = orgAcc.t2fuCnt[mi] > 0 ? +(orgAcc.t2fuSum[mi]/orgAcc.t2fuCnt[mi]).toFixed(1): null;
+  });
+  state.orgData = o;
+
+  // Merge static Q1 data back in (Jan-Mar locked, never overwritten by CSV)
+  for (let mi = 0; mi < STATIC_MONTHS; mi++) {
+    Object.keys(staticOrg).forEach(k => {
+      if (k.endsWith('_'+mi)) o[k] = staticOrg[k];
+    });
+  }
+  POD_NAMES.forEach(p => {
+    if (!state.podData[p] || !staticPod[p]) return;
+    for (let mi = 0; mi < STATIC_MONTHS; mi++) {
+      Object.keys(staticPod[p]).forEach(k => {
+        if (k.endsWith('_'+mi)) state.podData[p][k] = staticPod[p][k];
+      });
+    }
+    state.podData[p].score = calcPodScore(state.podData[p]);
+  });
+
+  // Compute ACTIVE_MONTHS — months with meaningful data (fv>0 or any non-null KPI except default rq)
+  // Determine the latest month that has real CSV data (fv > 0 or sr not null)
+  const lastCsvMi = (() => {
+    for (let mi = MONTHS.length - 1; mi >= STATIC_MONTHS; mi--) {
+      if ((o['fv_'+mi] && o['fv_'+mi] > 0) || o['sr_'+mi] !== null) return mi;
+    }
+    return STATIC_MONTHS - 1; // no CSV data beyond Q1
+  })();
+
+  ACTIVE_MONTHS = MONTHS.filter((m, mi) => {
+    if (mi < STATIC_MONTHS) return true; // always include locked Q1
+    if (mi > lastCsvMi) return false;    // never include months beyond CSV data
+    return KPI_META.some(k => {
+      if (k.key === 'rq') return false;  // rq defaults to 100 even with no data
+      const v = o[k.key+'_'+mi];
+      return v !== null && v !== undefined && v !== 0;
+    });
+  });
+  if (ACTIVE_MONTHS.length === 0) ACTIVE_MONTHS = ['Jan-26','Feb-26','Mar-26'];
+}
+
+function getArr(data, key, activeOnly=true) {
+  // activeOnly=true: only return months that have at least some org-level data
+  // This prevents 9 trailing nulls making charts look broken
+  const full = MONTHS.map((m, i) => ({m, v: data[key+'_'+i] ?? null}));
+  if (!activeOnly) return full.map(x=>x.v);
+  // Return up to the last month that has any non-null value across all keys
+  const lastActive = ACTIVE_MONTHS.length > 0
+    ? MONTHS.indexOf(ACTIVE_MONTHS[ACTIVE_MONTHS.length-1])
+    : MONTHS.length - 1;
+  return full.slice(0, lastActive+1).map(x=>x.v);
+}
+
+function getArrLabels(activeOnly=true) {
+  if (!activeOnly) return MONTHS;
+  const lastActive = ACTIVE_MONTHS.length > 0
+    ? MONTHS.indexOf(ACTIVE_MONTHS[ACTIVE_MONTHS.length-1])
+    : MONTHS.length - 1;
+  return MONTHS.slice(0, lastActive+1);
+}
+
+function calcPodScore(pd) {
+  // 9-KPI composite score (0-100), equal weight
+  // Use latest active month dynamically (not hardcoded to March)
+  const mi = ACTIVE_MONTHS.length > 0
+    ? MONTHS.indexOf(ACTIVE_MONTHS[ACTIVE_MONTHS.length - 1])
+    : 2;
+  const scores = [];
+
+  // 1. FV: MIN(FV/200*100, 100)
+  const fv = pd['fv_'+mi];
+  if (fv !== null && fv !== undefined) scores.push(Math.min(fv/200*100, 100));
+
+  // 2. DV: MIN(60/DV*100, 100) — inverted, 0 if no data
+  const dv = pd['dv_'+mi];
+  scores.push(dv && dv > 0 ? Math.min(60/dv*100, 100) : 0);
+
+  // 3. Alignment: align% direct
+  const al = pd['align_'+mi];
+  if (al !== null && al !== undefined) scores.push(al);
+
+  // 4. Tech Debt band 20-30%: 100 if in band, linear penalty outside
+  const td = pd['td_'+mi];
+  if (td !== null && td !== undefined) {
+    if (td >= 20 && td <= 30) scores.push(100);
+    else if (td < 20) scores.push(td/20*100);
+    else scores.push(Math.max(0, (100-td)/70*100));
+  } else scores.push(50); // neutral if no data
+
+  // 5. Release Quality: rq% direct
+  const rq = pd['rq_'+mi];
+  if (rq !== null && rq !== undefined) scores.push(rq);
+
+  // 6. Sprint Readiness: sr% direct
+  const sr = pd['sr_'+mi];
+  scores.push(sr !== null && sr !== undefined ? sr : 0);
+
+  // 7. AI Adoption: aiAdopt% direct
+  const ai = pd['aiAdopt_'+mi];
+  scores.push(ai !== null && ai !== undefined ? ai : 0);
+
+  // 8. BV: BV/5*100
+  const bv = pd['bv_'+mi];
+  scores.push(bv && bv > 0 ? bv/5*100 : 0);
+
+  // 9. TTD: MIN(90/TTD*100, 100) — inverted, 0 if no data
+  const ttd = pd['ttd_'+mi];
+  scores.push(ttd && ttd > 0 ? Math.min(90/ttd*100, 100) : 0);
+
+  return scores.length > 0 ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : 0;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// SAMPLE DATA (shown when CSVs not available)
+// ═══════════════════════════════════════════════════════════════════════
+function loadSampleData() {
+  const o = {};
+  // 12-element arrays — only first 3 months (Q1) have data
+  // All values validated against Aurigo_BOARDROOM_READY_V3.xlsx (Apr 2026)
+  const pad = (arr) => [...arr, ...Array(12 - arr.length).fill(null)];
+  const sample = {
+    fv:      pad([549,  707,   902  ]),
+    dv:      pad([60.1, 62.9,  64.9 ]),
+    align:   pad([80.3, 76.2,  87.6 ]),
+    td:      pad([45.0, 50.8,  23.4 ]),
+    rq:      pad([96.6, 97.2,  98.6 ]),
+    sr:      pad([43.8, 52.6,  74.0 ]),
+    aiAdopt: pad([70,   80,    95   ]),
+    aiProd:  pad([null, 25.5,  190.6]),
+    adopt:   pad([null, null,  null ]),  // Pendo — entered via Manual Inputs
+    ttd:     pad([null, 71.0,  210.8]),
+    bv:      pad([null, 3.88,  2.98 ]),
+    t2fu:    pad([null, null,  3    ]),
+  };
+  MONTHS.forEach((_, mi) => {
+    Object.keys(sample).forEach(k => { o[k+'_'+mi] = sample[k][mi]; });
+  });
+  state.orgData = o;
+
+  // Pod-level data — validated from Raw Data sheet (Apr 2026)
+  // dv = avg DV_Days (capped 365d); align/td/sr as %; rq = 100−defect%
+  const pod3 = {
+    'Lumina':        {fv:[181, 34,  10 ], dv:[124,  null,3.0  ], align:[100, 100,50  ], td:[9.9, 0,   100  ], sr:[23.8,25.0, 100 ], rq:[100, 100, 100 ], ttd:[null,null, null], bv:[null,null, null], adopt:[null,null,null], t2fu:[null,null,null]},
+    'API-IDM':       {fv:[18,  109, 57 ], dv:[null, 50,  null ], align:[100, 68.8,100 ], td:[27.8,54.1,35.1 ], sr:[0,   16.7, 25  ], rq:[100, 100, 100 ], ttd:[null,null, null], bv:[null,null, null], adopt:[null,null,null], t2fu:[null,null,null]},
+    'Build':         {fv:[15,  30,  20 ], dv:[65.2, 59.8,96.3 ], align:[20,  3.3, 40  ], td:[20,  0,   30   ], sr:[71.4,100,  71.4], rq:[100, 100, 100 ], ttd:[null,null, null], bv:[null,null, null], adopt:[null,null,null], t2fu:[null,null,3   ]},
+    'MW UI':             {fv:[101, 64,  492], dv:[14.7, 53.4,42.2 ], align:[100, 100, 100 ], td:[100, 93.8,24.8 ], sr:[70,  100,  94.1], rq:[100, 100, 100 ], ttd:[null,null, null], bv:[null,null, 2.67], adopt:[null,null,null], t2fu:[null,null,null]},
+    'Plan':              {fv:[14,  22,  17 ], dv:[null, 113, 105  ], align:[0,   0,   0   ], td:[50,  81.8,17.6 ], sr:[0,   12.5, 28.6], rq:[100, 100, 100 ], ttd:[null,40.0, 40.0], bv:[null,3.75, 4.07], adopt:[null,null,null], t2fu:[null,null,null]},
+    'QPR':               {fv:[9,   16,  65 ], dv:[71,   126.5,39.3], align:[100, 100, 100 ], td:[0,   0,   0    ], sr:[100, 66.7, 100 ], rq:[72.7,86.7,93.5], ttd:[null,null, null], bv:[null,null, 2.25], adopt:[null,null,null], t2fu:[null,null,null]},
+    'Aurigo Reporting':  {fv:[117, 143, 97 ], dv:[80.2, 85.2,null ], align:[38.5,45.5,48.4], td:[66.7,67.8,8.2  ], sr:[23.5,20,   9.1 ], rq:[100, 100, 93.3], ttd:[null,102.0,null], bv:[null,null, 2.0 ], adopt:[null,null,null], t2fu:[null,null,null]},
+    'Configplus':    {fv:[null,26,  40 ], dv:[null, 41,  139.5], align:[null,100, 100 ], td:[null,0,   0    ], sr:[null,100,  77.8], rq:[100, 100, 100 ], ttd:[null,null, null], bv:[null,null, 2.86], adopt:[null,null,null], t2fu:[null,null,null]},
+    'Mobile':        {fv:[94,  263, 104], dv:[39.7, 60.1,102.5], align:[89.4,98.1,73.1], td:[37.2,47.5,40.4 ], sr:[68.8,58.1,79.0 ], rq:[100, 97,  100 ], ttd:[null,null, 381.5], bv:[null,4.0,  4.0 ], adopt:[null,null,null], t2fu:[null,null,null]},
+  };
+  state.podData = {};
+  Object.entries(pod3).forEach(([pod, d]) => {
+    const pd = { name: pod };
+    MONTHS.forEach((_, mi) => {
+      Object.keys(d).forEach(k => { pd[k+'_'+mi] = mi < 3 ? (d[k][mi] ?? null) : null; });
+      pd['aiAdopt_'+mi] = getManualVal('aiAdopt', '_org', mi);
+      pd['aiProd_'+mi]  = getManualVal('aiProd',  '_org', mi);
+      const adoptMeta2  = MANUAL_KPIS.find(k=>k.key==='adopt');
+      pd['adopt_'+mi]   = adoptMeta2.pods.includes(pod) ? getManualVal('adopt', pod, mi) : null;
+      const t2fuMeta2   = MANUAL_KPIS.find(k=>k.key==='t2fu');
+      if (t2fuMeta2.pods.includes(pod)) {
+        const mv = getManualVal('t2fu', pod, mi);
+        if (mv !== null) pd['t2fu_'+mi] = mv;
+      }
+    });
+    pd.score = calcPodScore(pd);
+    state.podData[pod] = pd;
+  });
+  // ACTIVE_MONTHS for sample data = first 3 months (Q1)
+  ACTIVE_MONTHS = ['Jan-26','Feb-26','Mar-26'];
+  state.loaded = true;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════════════════
+function renderAll() {
+  // Update header subtitle dynamically from actual loaded data
+  const activePodCount = POD_NAMES.length;
+  const o = state.orgData;
+
+  // Active months = months with real data (computed in calculateKPIs)
+  const activeKpiCount = KPI_META.filter(k =>
+    ACTIVE_MONTHS.some(m => {
+      const mi = MONTHS.indexOf(m);
+      return o[k.key+'_'+mi] !== null && o[k.key+'_'+mi] !== undefined;
+    })
+  ).length;
+
+  // Quarter range label — show all quarters that have data
+  const activeQuarters = Object.keys(QUARTERS).filter(q =>
+    QUARTERS[q].some(mi => ACTIVE_MONTHS.includes(MONTHS[mi]))
+  );
+  const qLabel = activeQuarters.length === 1
+    ? activeQuarters[0]
+    : activeQuarters.length > 1
+      ? `${activeQuarters[0]} – ${activeQuarters[activeQuarters.length-1]}`
+      : '';
+
+  document.getElementById('headerSubtitle').innerHTML =
+    `${qLabel} &nbsp;·&nbsp; ${activePodCount} pods &nbsp;·&nbsp; ${activeKpiCount} of ${KPI_META.length} KPIs active`;
+  if (state.mode === 'month') {
+    renderMonthlyOrg();
+  } else {
+    renderQuarterlyOrg();
+  }
+  renderPodGrid();
+}
+
+function renderOrgHealth(suffix) {
+  const sfx = suffix || '';
+  const o = state.orgData;
+
+  // Build a data object with averaged values across active months
+  // Monthly: use the selected month directly
+  // Quarterly: average all active months in the selected quarter
+  let avgData = {};
+  if (sfx === 'Q') {
+    const qMonthIdxs = QUARTERS[QUARTER_KEYS[state.quarterIdx]];
+    const activeIdxs = qMonthIdxs.filter(i => ACTIVE_MONTHS.includes(MONTHS[i]));
+    const idxs = activeIdxs.length > 0 ? activeIdxs : qMonthIdxs;
+    // Quarterly = TRUE average across all active months in the quarter
+    KPI_META.forEach(k => {
+      const vals = idxs.map(i => o[k.key+'_'+i]).filter(v => v !== null && v !== undefined);
+      avgData[k.key] = vals.length > 0 ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+    });
+  } else {
+    const mi = state.monthIdx;
+    KPI_META.forEach(k => { avgData[k.key] = o[k.key+'_'+mi]; });
+  }
+
+  let healthy = 0, watch = 0, atRisk = 0;
+  const atRiskNames = [], strengthNames = [];
+
+  KPI_META.forEach(k => {
+    const val = avgData[k.key];
+    if (val === null || val === undefined) return;
+    let status;
+    if (k.dir === 'up')    status = val >= k.tgt ? 'healthy' : val >= k.tgt*0.85 ? 'watch' : 'risk';
+    else if (k.dir === 'down')  status = val <= k.tgt ? 'healthy' : val <= k.tgt*1.2 ? 'watch' : 'risk';
+    else if (k.dir === 'range') status = (val>=k.tgt[0]&&val<=k.tgt[1]) ? 'healthy' : (val>=k.tgt[0]*0.8&&val<=k.tgt[1]*1.3) ? 'watch' : 'risk';
+    else status = 'healthy';
+
+    if (status === 'healthy') { healthy++; strengthNames.push(k.label); }
+    else if (status === 'watch') { watch++; }
+    else { atRisk++; atRiskNames.push(k.label); }
+  });
+
+  const total = healthy + watch + atRisk;
+  const score = total > 0 ? Math.round((healthy*3 + watch*2 + atRisk*1) / (total*3) * 100) : 0;
+  const scoreLabel = score >= 75 ? 'Healthy' : score >= 50 ? 'Watch' : 'At Risk';
+  const scoreLabelColor = score >= 75 ? '#065F46' : score >= 50 ? '#92400E' : '#991B1B';
+  const scoreBg = score >= 75 ? '#D1FAE5' : score >= 50 ? '#FEF3C7' : '#FEE2E2';
+
+  const elScore = document.getElementById('ohScore'+sfx);
+  if (elScore) { elScore.textContent = score; elScore.style.color = scoreLabelColor; }
+
+  const elLbl = document.getElementById('ohLabel'+sfx);
+  if (elLbl) {
+    elLbl.textContent = scoreLabel;
+    elLbl.style.color = scoreLabelColor;
+    elLbl.style.background = scoreBg;
+    elLbl.style.display = 'inline-block';
+    elLbl.style.padding = '2px 10px';
+    elLbl.style.borderRadius = '10px';
+  }
+
+  const elH = document.getElementById('ohHealthy'+sfx); if (elH) elH.textContent = healthy;
+  const elW = document.getElementById('ohWatch'+sfx);   if (elW) elW.textContent = watch;
+  const elR = document.getElementById('ohRisk'+sfx);    if (elR) elR.textContent = atRisk;
+
+  const elAR = document.getElementById('ohAtRisk'+sfx);
+  if (elAR) elAR.innerHTML = atRiskNames.length
+    ? atRiskNames.map(n => `❌ ${n}`).join('<br>')
+    : '<span style="color:var(--text2)">None — all KPIs on track</span>';
+
+  const elST = document.getElementById('ohStrengths'+sfx);
+  if (elST) elST.innerHTML = strengthNames.length
+    ? strengthNames.slice(0,5).map(n => `✅ ${n}`).join('<br>')
+    : '<span style="color:var(--text2)">No data yet</span>';
+
+  // Mini donut
+  const donutId = 'ohDonut'+sfx;
+  const existing = Chart.getChart(donutId);
+  if (existing) existing.destroy();
+  const donutEl = document.getElementById(donutId);
+  if (donutEl) {
+    new Chart(donutEl, {
+      type: 'doughnut',
+      data: { datasets: [{ data: [healthy, watch, atRisk],
+        backgroundColor: ['#059669','#D97706','#DC2626'],
+        borderWidth: 0, hoverOffset: 2 }] },
+      options: {
+        cutout: '72%',
+        plugins: { legend: { display: false }, tooltip: { enabled: false } },
+        animation: { duration: 400 }
+      }
+    });
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// ACCORDION HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+function toggleAcc(id) {
+  const header = document.getElementById('acc-h-'+id);
+  const body   = document.getElementById('acc-b-'+id);
+  if (!header || !body) return;
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  header.classList.toggle('open', !isOpen);
+}
+
+async function downloadAccPDF(id, label) {
+  const body = document.getElementById('acc-b-'+id);
+  if (!body || typeof html2canvas === 'undefined') {
+    alert('PDF download requires html2canvas — check your internet connection.');
+    return;
+  }
+  const btn = event.currentTarget;
+  const orig = btn.innerHTML;
+  btn.innerHTML = '⏳ Capturing...';
+  btn.disabled = true;
+
+  const wasOpen = body.style.display !== 'none';
+  if (!wasOpen) { body.style.display = 'block'; await new Promise(r=>setTimeout(r,200)); }
+
+  try {
+    const canvas = await html2canvas(body, { scale:2, useCORS:true, backgroundColor:'#ffffff', logging:false });
+    const periodLabel = state.mode === 'quarter'
+      ? QUARTER_KEYS[state.quarterIdx]
+      : MONTHS[state.monthIdx];
+    const link = document.createElement('a');
+    link.download = `${label.replace(/\s+/g,'-')}-${periodLabel}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } catch(e) { alert('Could not capture: ' + e.message); }
+
+  if (!wasOpen) body.style.display = 'none';
+  btn.innerHTML = orig;
+  btn.disabled = false;
+}
+
+function buildAccordion(groupKey, label, color, bg, cardsHtml, chartsHtml, prefix) {
+  const id = prefix + '-' + groupKey;
+  return `
+  <div class="kpi-accordion">
+    <div class="acc-header open" id="acc-h-${id}" onclick="toggleAcc('${id}')">
+      <div class="acc-title">
+        <span style="width:10px;height:10px;border-radius:50%;background:${color};display:inline-block;flex-shrink:0"></span>
+        <span>${label}</span>
+      </div>
+      <div class="acc-actions">
+        <button class="btn-pdf" onclick="event.stopPropagation();downloadAccPDF('${id}','${label}')">
+          ⬇ PDF
+        </button>
+        <span class="acc-chevron">▼</span>
+      </div>
+    </div>
+    <div class="acc-body open" id="acc-b-${id}" style="display:block">
+      <div class="kpi-grid" style="margin-bottom:${chartsHtml?'16px':'0'}">${cardsHtml}</div>
+      ${chartsHtml ? `<div class="chart-grid">${chartsHtml}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function renderOrgAccordions(mi, prevMi, o, prefix) {
+  const chartKeyMap = {
+    ttd:'c-ttd', adopt:'c-adopt', aiAdopt:'c-ai',
+    dv:'c-dv', sr:'c-sr', fv:'c-fv', align:'c-align', t2fu:'c-t2fu', bv:'c-bv',
+    aiProd:'c-aip', rq:'c-rq', td:'c-td'
+  };
+  const chartLabelMap = {
+    ttd:'Time to demo (d)', adopt:'Product adoption (%)', aiAdopt:'AI adoption (%)',
+    dv:'Discovery velocity (d)', sr:'Sprint readiness (%)', fv:'Feature velocity (SP)',
+    align:'Roadmap alignment (%)', t2fu:'Time to first usage (d)', bv:'Business value (/5)',
+    aiProd:'AI productivity (SP/M)', rq:'Release quality (%)', td:'Tech debt (%)'
+  };
+
+  let html = '';
+  KPI_GROUPS.forEach(g => {
+    const kpis = KPI_META.filter(k => g.keys.includes(k.key));
+    const cardsHtml = kpis.map(k => {
+      const val  = o[k.key+'_'+mi];
+      const prev = prevMi !== null ? o[k.key+'_'+prevMi] : null;
+      return buildKpiCard(k, val, prev, mi);
+    }).join('');
+    const chartsHtml = kpis.map(k => {
+      const cid = chartKeyMap[k.key];
+      if (!cid) return '';
+      return `<div class="chart-box"><h3>${chartLabelMap[k.key]}</h3><div class="chart-wrap"><canvas id="${cid}"></canvas></div></div>`;
+    }).join('');
+    html += buildAccordion(g.key, g.label, g.color, g.bg, cardsHtml, chartsHtml, prefix);
+  });
+  return html;
+}
+
+function renderPdKpiAccordions(pd, effectiveMi, isQ, qMonthIdxs, prefix) {
+  let html = '';
+  KPI_GROUPS.forEach(g => {
+    const kpis = KPI_META.filter(k => g.keys.includes(k.key));
+    const cardsHtml = kpis.map(k => {
+      let val, prev;
+      if (isQ) {
+        const vals = qMonthIdxs.map(i=>pd[k.key+'_'+i]).filter(v=>v!==null&&v!==undefined);
+        val = vals.length>0 ? fmt1(vals.reduce((a,b)=>a+b,0)/vals.length) : null;
+      } else {
+        val  = fmt1(pd[k.key+'_'+effectiveMi]);
+        prev = effectiveMi>0 ? fmt1(pd[k.key+'_'+(effectiveMi-1)]) : null;
+      }
+      let statusClass='chip-b', statusLabel='N/A';
+      if (val!==null&&val!==undefined) {
+        let ok=false,warn=false;
+        if (k.dir==='up')    { ok=val>=k.tgt; warn=val>=k.tgt*0.85; }
+        if (k.dir==='down')  { ok=val<=k.tgt; warn=val<=k.tgt*1.2; }
+        if (k.dir==='range') { ok=val>=k.tgt[0]&&val<=k.tgt[1]; warn=val>=k.tgt[0]*.8&&val<=k.tgt[1]*1.3; }
+        if (k.dir==='trend') { ok=true; }
+        statusClass = ok?'chip-g':warn?'chip-a':'chip-r';
+        statusLabel  = ok?'On track':warn?'Watch':'Off track';
+      }
+      let sub='', subClass='flat';
+      if (!isQ && prev!==null&&prev!==undefined&&val!==null&&val!==undefined) {
+        const diff = +parseFloat(val-prev).toFixed(1);
+        sub = `${diff>0?'+':''}${diff}${k.unit} vs prev`;
+        subClass = k.dir==='up'?(diff>0?'up':'down'):k.dir==='down'?(diff<0?'up':'down'):'flat';
+      }
+      return `<div class="pd-kpi-card">
+        <div class="pk-label">${k.label}</div>
+        <div class="pk-val" style="font-size:18px;font-weight:500">${val!==null&&val!==undefined?val+k.unit:'N/A'}</div>
+        ${sub?`<div class="pk-trend ${subClass}" style="font-size:11px">${sub}</div>`:''}
+        <div style="margin-top:4px"><span class="chip ${statusClass}" style="font-size:10px">${statusLabel}</span></div>
+      </div>`;
+    }).join('');
+    const chartsHtml = kpis.map(k =>
+      `<div class="chart-box"><h3>${k.label}${k.unit.trim()?' ('+k.unit.trim()+')':''}</h3>
+       <div class="chart-wrap"><canvas id="${prefix}-pd-${k.key}"></canvas></div></div>`
+    ).join('');
+    html += buildAccordion(g.key, g.label, g.color, g.bg, cardsHtml, chartsHtml, prefix);
+  });
+  return html;
+}
+
+function renderMonthlyOrg() {
+  const mi = state.monthIdx;
+  const o = state.orgData;
+  const prevMi = mi > 0 ? mi-1 : null;
+
+  renderOrgHealth('');
+  document.getElementById('summaryLabel').textContent = 'Summary — ' + MONTHS[mi];
+
+  // Render accordion KPI cards + charts grouped by category
+  const accEl = document.getElementById('orgKpiAccordions');
+  if (accEl) accEl.innerHTML = renderOrgAccordions(mi, prevMi, o, 'org');
+
+  destroyCharts(orgCharts);
+  orgCharts = {};
+  setTimeout(() => {
+    const chartKeyMap = { ttd:'c-ttd', adopt:'c-adopt', aiAdopt:'c-ai', dv:'c-dv', sr:'c-sr', fv:'c-fv', align:'c-align', t2fu:'c-t2fu', bv:'c-bv', aiProd:'c-aip', rq:'c-rq', td:'c-td' };
+    const colMap = { ttd:C.amber, adopt:C.green, aiAdopt:C.blue, dv:C.amber, sr:C.red, fv:C.blue, align:C.green, t2fu:C.amber, bv:C.green, aiProd:C.blue, rq:C.green, td:C.amber };
+    KPI_META.forEach(k => {
+      const cid = chartKeyMap[k.key];
+      if (cid) orgCharts[k.key] = makeChart(cid, getArr(o,k.key), k.label, colMap[k.key]||C.blue, k.unit);
+    });
+  }, 80);
+}
+
+function renderQuarterlyOrg() {
+  renderOrgHealth('Q');
+  const o = state.orgData;
+  const qi = state.quarterIdx;
+  const qKey = QUARTER_KEYS[qi];
+  const qMonthIdxs = QUARTERS[qKey];
+  const qMonthLabels = qMonthIdxs.map(i => MONTHS[i]);
+
+  document.getElementById('qSummaryLabel').textContent = `${qKey} — Quarter Summary`;
+  document.getElementById('qScorecardLabel').textContent = `KPI Scorecard — ${qKey}`;
+
+  // Quarter avg helper
+  function qAvg(key) {
+    return QUARTER_KEYS.map(qk => {
+      const idxs = QUARTERS[qk];
+      const vals = idxs.map(i => o[key+'_'+i]).filter(v => v !== null && v !== undefined);
+      return vals.length ? +(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : null;
+    });
+  }
+
+  // Build accordions — cards show Q avg, charts show QoQ trend
+  const chartLabelMap = {
+    ttd:'Time to demo (d)', adopt:'Product adoption (%)', aiAdopt:'AI adoption (%)',
+    dv:'Discovery velocity (d)', sr:'Sprint readiness (%)', fv:'Feature velocity (SP)',
+    align:'Roadmap alignment (%)', t2fu:'Time to first usage (d)', bv:'Business value (/5)',
+    aiProd:'AI productivity (SP/M)', rq:'Release quality (%)', td:'Tech debt (%)'
+  };
+
+  let accHtml = '';
+  KPI_GROUPS.forEach(g => {
+    const kpis = KPI_META.filter(k => g.keys.includes(k.key));
+
+    // Cards: Q avg value
+    const cardsHtml = kpis.map(k => {
+      const arr = qMonthIdxs.map(i => o[k.key+'_'+i]);
+      const valid = arr.filter(x => x !== null && x !== undefined);
+      const avg = valid.length ? fmt1(valid.reduce((a,b)=>a+b,0)/valid.length) : null;
+      const sub = valid.length ? `${qKey} avg` : 'No data';
+      return `<div class="kpi-card">
+        <div class="kc-label">${k.label}</div>
+        <div class="kc-value">${avg !== null ? avg : 'N/A'}<span class="kc-unit">${avg !== null ? k.unit : ''}</span></div>
+        <div class="kc-sub flat">${sub}</div>
+        <div>${statusChip(avg, k)}</div>
+      </div>`;
+    }).join('');
+
+    // Charts: QoQ trend
+    const chartsHtml = kpis.map(k => {
+      const cid = `qc-${g.key}-${k.key}`;
+      return `<div class="chart-box"><h3>${chartLabelMap[k.key]}</h3><div class="chart-wrap"><canvas id="${cid}"></canvas></div></div>`;
+    }).join('');
+
+    accHtml += buildAccordion(g.key, g.label, g.color, g.bg, cardsHtml, chartsHtml, 'qorg');
+  });
+
+  const accEl = document.getElementById('qKpiAccordions');
+  if (accEl) accEl.innerHTML = accHtml;
+
+  // Scorecard table — month columns within selected quarter
+  const headCols = qMonthLabels.map(m => `<th>${m}</th>`).join('');
+  document.getElementById('qTableHead').innerHTML =
+    `<tr><th>KPI</th>${headCols}<th>Trend</th><th>Target</th><th>Status</th></tr>`;
+  const tbody = KPI_META.map(k => {
+    const arr = qMonthIdxs.map(i => o[k.key+'_'+i]);
+    const fmt = v => v !== null && v !== undefined ? fmt1(v)+k.unit : 'N/A';
+    const trend = trendArrow(arr);
+    const tc = trendClass(arr, k.dir);
+    const validVals = arr.filter(x=>x!==null&&x!==undefined);
+    const qAvgVal = validVals.length > 0 ? validVals.reduce((a,b)=>a+b,0)/validVals.length : null;
+    const chip = statusChip(qAvgVal, k);
+    const cells = arr.map((v,i) =>
+      `<td style="${i===arr.length-1?'font-weight:500':''}">${fmt(v)}</td>`).join('');
+    return `<tr><td style="font-weight:500">${k.label}</td>${cells}
+      <td class="${tc}">${trend}</td>
+      <td style="color:var(--text2);font-size:11px">${k.tgtLabel}</td>
+      <td>${chip}</td></tr>`;
+  }).join('');
+  document.getElementById('qTableBody').innerHTML = tbody;
+
+  // Render QoQ charts
+  destroyCharts(orgCharts);
+  orgCharts = {};
+  const colMap = { ttd:C.amber, adopt:C.green, aiAdopt:C.blue, dv:C.amber, sr:C.red, fv:C.blue, align:C.green, t2fu:C.amber, bv:C.green, aiProd:C.blue, rq:C.green, td:C.amber };
+  setTimeout(() => {
+    KPI_GROUPS.forEach(g => {
+      KPI_META.filter(k => g.keys.includes(k.key)).forEach(k => {
+        const cid = `qc-${g.key}-${k.key}`;
+        const col = colMap[k.key] || C.blue;
+        const ch = makeChartQ(cid, QUARTER_KEYS, qAvg(k.key), k.label, col, k.unit);
+        if (ch) orgCharts[k.key] = ch;
+      });
+    });
+  }, 80);
+}
+
+function buildKpiCard(k, val, prev, mi, isQAvg) {
+  const dispVal = fmt1(val);
+  const chip = statusChip(val, k);
+  let sub = '', subClass = 'flat';
+
+  if (prev !== null && prev !== undefined && val !== null && val !== undefined) {
+    const diff = +parseFloat(val - prev).toFixed(1);
+    const sign = diff > 0 ? '+' : '';
+    sub = `${sign}${diff}${k.unit} vs ${MONTHS[mi-1] || 'prev'}`;
+    subClass = k.dir==='up'?(diff>0?'up':'down') : k.dir==='down'?(diff<0?'up':'down') : 'flat';
+  } else if (isQAvg) {
+    sub = 'Q avg';
+  } else if (val !== null && val !== undefined) {
+    sub = 'First reading';
+  } else {
+    sub = 'No data';
+  }
+
+  return `<div class="kpi-card">
+    <div class="kc-label">${k.label}</div>
+    <div class="kc-value">${dispVal !== null ? dispVal : 'N/A'}<span class="kc-unit">${dispVal !== null ? k.unit : ''}</span></div>
+    <div class="kc-sub ${subClass}">${sub}</div>
+    <div>${chip}</div>
+  </div>`;
+}
+
+function renderPodGrid() {
+  const mi = state.monthIdx;
+  const selectedMonth = MONTHS[mi];
+  const isStaticMonth = mi < STATIC_MONTHS;
+  const hasLiveData = ACTIVE_MONTHS.includes(selectedMonth) && !isStaticMonth;
+
+  const html = POD_NAMES.map((pName, i) => {
+    const pd = state.podData[pName] || {};
+    // Calculate score for the SELECTED month, not the pre-stored latest-month score
+    const score = calcPodHealthAt(pd, mi);
+    const fv = pd['fv_'+mi]; const dv = pd['dv_'+mi];
+    const align = pd['align_'+mi]; const sr = pd['sr_'+mi];
+    const barColor = score>=75?C.green:score>=50?'#D97706':C.red;
+    const sc = scClass(score);
+
+    // Data source badge — shows which month the score reflects and whether it's live or static
+    const badgeColor = isStaticMonth ? '#6B7280' : hasLiveData ? '#059669' : '#D97706';
+    const badgeBg    = isStaticMonth ? '#F1F5F9' : hasLiveData ? '#D1FAE5' : '#FEF3C7';
+    const badgeLabel = isStaticMonth ? `${selectedMonth} · Static` : hasLiveData ? `${selectedMonth} · Live` : `${selectedMonth} · Partial`;
+
+    return `<div class="pod-card" onclick="showPodDetail('${pName}')">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div class="pc-name" style="margin-bottom:0">${pName}</div>
+        <span style="font-size:10px;font-weight:500;padding:2px 7px;border-radius:10px;
+          background:${badgeBg};color:${badgeColor};white-space:nowrap">${badgeLabel}</span>
+      </div>
+      <div class="pc-score ${sc}">${score}%</div>
+      <div class="pc-label ${sc}" style="font-size:11px;margin-bottom:6px">${scLabel(score)}</div>
+      <div class="pc-bar"><div class="pc-bar-fill" style="width:${score}%;background:${barColor}"></div></div>
+      <div class="pc-kpis">
+        <div class="pc-kpi"><span>FV</span><span>${fv !== null && fv !== undefined ? fv+' SP' : 'N/A'}</span></div>
+        <div class="pc-kpi"><span>DV</span><span>${dv !== null && dv !== undefined && dv > 0 ? dv+'d' : 'N/A'}</span></div>
+        <div class="pc-kpi"><span>Align</span><span>${align !== null && align !== undefined ? align+'%' : 'N/A'}</span></div>
+        <div class="pc-kpi"><span>Sprint</span><span>${sr !== null && sr !== undefined ? sr+'%' : 'N/A'}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('podGrid').innerHTML = html;
+}
+
+// ── Pod detail state ──────────────────────────────────────────────
+let pdState = { mode:'month', monthIdx:2, quarterIdx:0, podName:null };
+let pdChartObjs = [];
+
+function showPodDetail(pName) {
+  pdState.podName  = pName;
+  pdState.mode     = 'month';
+  pdState.monthIdx = state.monthIdx; // sync with org tab selection
+
+  document.getElementById('podListView').style.display  = 'none';
+  document.getElementById('podDetailView').style.display = 'block';
+  document.getElementById('pdName').textContent = pName;
+
+  initPdPills();
+  renderPodDetail();
+}
+
+function showPodList() {
+  document.getElementById('podListView').style.display  = 'block';
+  document.getElementById('podDetailView').style.display = 'none';
+  pdChartObjs.forEach(c => c && c.destroy());
+  pdChartObjs = [];
+}
+
+function setPodMode(m) {
+  pdState.mode = m;
+  document.getElementById('pdBtnMonth').classList.toggle('active', m==='month');
+  document.getElementById('pdBtnQuarter').classList.toggle('active', m==='quarter');
+  document.getElementById('pdMonthSelect').style.display   = m==='month'   ? 'block' : 'none';
+  document.getElementById('pdQuarterSelect').style.display = m==='quarter' ? 'block' : 'none';
+  renderPodDetail();
+}
+
+function initPdPills() {
+  const lastActiveIdx = ACTIVE_MONTHS.length > 0
+    ? MONTHS.indexOf(ACTIVE_MONTHS[ACTIVE_MONTHS.length - 1])
+    : 2;
+
+  // Month dropdown — only up to last active month
+  const ms = document.getElementById('pdMonthSelect');
+  if (ms) {
+    ms.innerHTML = MONTHS.slice(0, lastActiveIdx + 1).map((m, i) => {
+      const hasData = ACTIVE_MONTHS.includes(m);
+      return `<option value="${i}" ${i === pdState.monthIdx ? 'selected' : ''} ${!hasData ? 'style="color:var(--text3)"' : ''}>${m}${hasData ? '' : ' (no data)'}</option>`;
+    }).join('');
+  }
+
+  // Quarter dropdown — only quarters with data
+  const qs = document.getElementById('pdQuarterSelect');
+  if (qs) {
+    qs.innerHTML = QUARTER_KEYS.map((q, i) => {
+      const hasData = QUARTERS[q].some(mi => ACTIVE_MONTHS.includes(MONTHS[mi]));
+      return `<option value="${i}" ${i === pdState.quarterIdx ? 'selected' : ''} ${!hasData ? 'style="color:var(--text3)"' : ''}>${q}${hasData ? '' : ' (no data)'}</option>`;
+    }).join('');
+  }
+
+  // Show correct dropdown
+  if (ms) ms.style.display = pdState.mode === 'month'   ? 'block' : 'none';
+  if (qs) qs.style.display = pdState.mode === 'quarter' ? 'block' : 'none';
+}
+
+function pdSelectMonth(idx) {
+  pdState.monthIdx = idx;
+  const sel = document.getElementById('pdMonthSelect');
+  if (sel) sel.value = idx;
+  renderPodDetail();
+}
+
+function pdSelectQuarter(idx) {
+  pdState.quarterIdx = idx;
+  const sel = document.getElementById('pdQuarterSelect');
+  if (sel) sel.value = idx;
+  renderPodDetail();
+}
+
+function calcPodHealthAt(pd, mi) {
+  // Return 0 if this month has no data at all (prevents phantom scores on future months)
+  const hasAnyData = ['fv','dv','align','td','rq','sr','bv','ttd'].some(k => {
+    const v = pd[k+'_'+mi];
+    return v !== null && v !== undefined && v !== 0;
+  });
+  if (!hasAnyData && mi >= STATIC_MONTHS) return 0;
+
+  // 9-KPI composite score for a specific month index
+  const fv  = pd['fv_'+mi],  dv    = pd['dv_'+mi],  al = pd['align_'+mi];
+  const td  = pd['td_'+mi],  rq    = pd['rq_'+mi],  sr = pd['sr_'+mi];
+  const ai  = pd['aiAdopt_'+mi], bv = pd['bv_'+mi], ttd = pd['ttd_'+mi];
+  const scores = [];
+  if (fv!==null&&fv!==undefined) scores.push(Math.min(fv/200*100,100));
+  scores.push(dv&&dv>0 ? Math.min(60/dv*100,100) : 0);
+  if (al!==null&&al!==undefined) scores.push(al);
+  if (td!==null&&td!==undefined) {
+    if (td>=20&&td<=30) scores.push(100);
+    else if (td<20) scores.push(td/20*100);
+    else scores.push(Math.max(0,(100-td)/70*100));
+  } else scores.push(50);
+  if (rq!==null&&rq!==undefined) scores.push(rq);
+  scores.push(sr!==null&&sr!==undefined ? sr : 0);
+  scores.push(ai!==null&&ai!==undefined ? ai : 0);
+  scores.push(bv&&bv>0 ? bv/5*100 : 0);
+  scores.push(ttd&&ttd>0 ? Math.min(90/ttd*100,100) : 0);
+  return scores.length>0 ? Math.round(scores.reduce((a,b)=>a+b,0)/scores.length) : 0;
+}
+
+function renderPodDetail() {
+  const pName = pdState.podName;
+  const pd    = state.podData[pName] || {};
+  const isQ   = pdState.mode === 'quarter';
+
+  // ── Determine effective month index / quarter months ──────────
+  let effectiveMi, qMonthIdxs = [];
+  if (isQ) {
+    qMonthIdxs  = QUARTERS[QUARTER_KEYS[pdState.quarterIdx]];
+    const active = qMonthIdxs.filter(i => ACTIVE_MONTHS.includes(MONTHS[i]));
+    effectiveMi  = active.length > 0 ? active[active.length-1] : qMonthIdxs[qMonthIdxs.length-1];
+  } else {
+    effectiveMi = pdState.monthIdx;
+  }
+
+  // ── Compute score for selected period ─────────────────────────
+  let score;
+  if (isQ) {
+    const qScores = qMonthIdxs
+      .filter(i => ACTIVE_MONTHS.includes(MONTHS[i]))
+      .map(i => calcPodHealthAt(pd, i));
+    score = qScores.length > 0 ? Math.round(qScores.reduce((a,b)=>a+b,0)/qScores.length) : 0;
+  } else {
+    score = calcPodHealthAt(pd, effectiveMi);
+  }
+
+  const scoreLabelColor = score>=75?'#065F46':score>=50?'#92400E':'#991B1B';
+  const scoreBg         = score>=75?'#D1FAE5':score>=50?'#FEF3C7':'#FEE2E2';
+  const scoreLabel      = scLabel(score);
+
+  // Update header badge
+  const sb = document.getElementById('pdScoreBadge');
+  sb.textContent = `${score} — ${scoreLabel}`;
+  sb.className = 'chip ' + (score>=75?'chip-g':score>=50?'chip-a':'chip-r');
+  sb.style.fontSize = '12px'; sb.style.padding = '4px 12px';
+
+  // Big score
+  const elS = document.getElementById('pdScore');
+  elS.textContent = score; elS.style.color = scoreLabelColor;
+  const elL = document.getElementById('pdScoreLabel');
+  elL.textContent = scoreLabel;
+  elL.style.cssText = `font-size:12px;font-weight:500;color:${scoreLabelColor};
+    background:${scoreBg};display:inline-block;padding:2px 10px;border-radius:10px`;
+
+  // Period trend card — monthly: rolling last 3 active months; quarterly: all 4 quarters
+  const trendLabel = document.getElementById('pdTrendCardLabel');
+  if (isQ) {
+    if (trendLabel) trendLabel.textContent = 'Q Trend';
+    document.getElementById('pdMonthScores').innerHTML = QUARTER_KEYS.map((qk, qi) => {
+      const qIdxs = QUARTERS[qk];
+      const activeIdxs = qIdxs.filter(i => ACTIVE_MONTHS.includes(MONTHS[i]));
+      if (activeIdxs.length === 0) return '';
+      const qScore = Math.round(activeIdxs.map(i => calcPodHealthAt(pd, i))
+        .reduce((a,b)=>a+b,0) / activeIdxs.length);
+      if (qScore === 0) return '';
+      const c  = qScore>=75?'#065F46':qScore>=50?'#92400E':'#991B1B';
+      const bg = qScore>=75?'#D1FAE5':qScore>=50?'#FEF3C7':'#FEE2E2';
+      const isCurrent = qi === pdState.quarterIdx;
+      return `<div style="text-align:center;${isCurrent?'transform:scale(1.12);':'opacity:0.75;'};transition:all .2s">
+        <div style="font-size:${isCurrent?24:18}px;font-weight:${isCurrent?700:500};color:${c}">${qScore}</div>
+        <div style="font-size:10px;font-weight:600;background:${bg};color:${c};
+                    border-radius:8px;padding:2px 10px;margin-top:3px">${qk.replace(' 2026','')}</div>
+      </div>`;
+    }).filter(Boolean).join('<div style="color:var(--text3);font-size:14px;align-self:center;padding:0 2px">→</div>');
+  } else {
+    if (trendLabel) trendLabel.textContent = 'Month Trend';
+    // Rolling window — show up to 3 months ending at selected month
+    const allActiveMis = MONTHS.map((m,i) => i).filter(mi => ACTIVE_MONTHS.includes(MONTHS[mi]));
+    const currentIdx = allActiveMis.indexOf(effectiveMi);
+    // Take up to 3 months: the selected month and 2 before it
+    const windowEnd   = currentIdx >= 0 ? currentIdx : allActiveMis.length - 1;
+    const windowStart = Math.max(0, windowEnd - 2);
+    const windowMis   = allActiveMis.slice(windowStart, windowEnd + 1);
+    document.getElementById('pdMonthScores').innerHTML = windowMis.map(mi => {
+      const s = calcPodHealthAt(pd, mi);
+      if (s === 0 && mi >= STATIC_MONTHS) return '';
+      const c  = s>=75?'#065F46':s>=50?'#92400E':'#991B1B';
+      const bg = s>=75?'#D1FAE5':s>=50?'#FEF3C7':'#FEE2E2';
+      const isCurrent = mi === effectiveMi;
+      return `<div style="text-align:center;${isCurrent?'transform:scale(1.12);':'opacity:0.75;'};transition:all .2s">
+        <div style="font-size:${isCurrent?24:18}px;font-weight:${isCurrent?700:500};color:${c}">${s}</div>
+        <div style="font-size:10px;font-weight:600;background:${bg};color:${c};
+                    border-radius:8px;padding:2px 8px;margin-top:3px">${MONTHS[mi]}</div>
+      </div>`;
+    }).filter(Boolean).join('<div style="color:var(--text3);font-size:14px;align-self:center;padding:0 2px">→</div>');
+  }
+
+  // KPI-level at-risk / strengths for selected period
+  const atRiskList = [], strengthList = [];
+  KPI_META.forEach(k => {
+    let val;
+    if (isQ) {
+      const vals = qMonthIdxs.map(i=>pd[k.key+'_'+i]).filter(v=>v!==null&&v!==undefined);
+      val = vals.length>0 ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+    } else {
+      val = pd[k.key+'_'+effectiveMi];
+    }
+    if (val===null||val===undefined) return;
+    let ok;
+    if (k.dir==='up')    ok = val>=k.tgt;
+    else if (k.dir==='down')  ok = val<=k.tgt;
+    else if (k.dir==='range') ok = val>=k.tgt[0]&&val<=k.tgt[1];
+    else ok = true;
+    if (ok) strengthList.push(k.label);
+    else atRiskList.push(k.label);
+  });
+
+  document.getElementById('pdAtRisk').innerHTML = atRiskList.length
+    ? atRiskList.map(n=>`❌ ${n}`).join('<br>')
+    : '<span style="color:var(--text2)">All KPIs on track</span>';
+  document.getElementById('pdStrengths').innerHTML = strengthList.length
+    ? strengthList.slice(0,5).map(n=>`✅ ${n}`).join('<br>')
+    : '<span style="color:var(--text2)">No data yet</span>';
+
+  // Mini donut
+  const existing = Chart.getChart('pdDonut');
+  if (existing) existing.destroy();
+  new Chart(document.getElementById('pdDonut'), {
+    type:'doughnut',
+    data:{ datasets:[{ data:[strengthList.length, 0, atRiskList.length],
+      backgroundColor:['#059669','#D97706','#DC2626'], borderWidth:0 }] },
+    options:{ cutout:'72%', plugins:{legend:{display:false},tooltip:{enabled:false}},
+      animation:{duration:300} }
+  });
+
+  // ── Insights — use selected month, not hardcoded Mar ─────────
+  const ins = getPodInsights(pName, pd, effectiveMi);
+  document.getElementById('pdInsights').innerHTML = ins.length
+    ? ins.map(i=>`<div class="insight-item"><span class="dot dot-${i.t}"></span><span>${i.m}</span></div>`).join('')
+    : '<div class="insight-item"><span class="dot dot-a"></span><span>No data available yet.</span></div>';
+
+  // ── KPI snapshot + trend charts as accordions ─────────────────
+  const periodLabel = isQ ? QUARTER_KEYS[pdState.quarterIdx] : MONTHS[effectiveMi];
+  document.getElementById('pdKpiLabel').textContent = `KPI Snapshot — ${periodLabel}`;
+
+  const podPrefix = pName.replace(/[^a-z0-9]/gi,'');
+  document.getElementById('pdKpiCards').innerHTML = renderPdKpiAccordions(pd, effectiveMi, isQ, qMonthIdxs, podPrefix);
+  document.getElementById('pdCharts').innerHTML = ''; // charts now inside accordions
+
+  // ── Trend charts ──────────────────────────────────────────────
+  pdChartObjs.forEach(c => c && c.destroy());
+  pdChartObjs = [];
+  setTimeout(() => {
+    const colMap = { ttd:C.amber, adopt:C.green, aiAdopt:C.blue, dv:C.amber, sr:C.red, fv:C.blue, align:C.green, t2fu:C.amber, bv:C.green, aiProd:C.blue, rq:C.green, td:C.amber };
+    KPI_META.forEach(k => {
+      const cid = `${podPrefix}-pd-${k.key}`;
+      const col = colMap[k.key] || C.blue;
+      const ch = makeChart(cid, getArr(pd,k.key), k.label, col, k.unit);
+      if (ch) pdChartObjs.push(ch);
+    });
+  }, 80);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// CHARTS
+// ═══════════════════════════════════════════════════════════════════════
+function makeChart(id, data, label, color, unit) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return null;
+  const labels = getArrLabels();
+  const pts = data.map((v,i) => ({x:labels[i]||MONTHS[i], y:v}))
+    .filter(p => p.y !== null && p.y !== undefined && p.y >= 0);
+  if (!pts.length) return null;
+  return new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: pts.map(p=>p.x),
+      datasets: [{
+        label, data: pts.map(p=>p.y), borderColor: color,
+        backgroundColor: color+'18', borderWidth: 2,
+        pointRadius: 4, pointHoverRadius: 6, fill: true, tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{display:false}, tooltip:{callbacks:{label:c=>`${c.parsed.y.toFixed(1)}${unit}`}} },
+      scales: {
+        x: { grid:{display:false}, ticks:{font:{size:11},color:'#888'} },
+        y: { grid:{color:'rgba(0,0,0,0.05)'}, ticks:{font:{size:11},color:'#888',callback:v=>v===null?'':fmt1(v)+unit} }
+      }
+    }
+  });
+}
+
+function destroyCharts(obj) { Object.values(obj).forEach(c => c && c.destroy()); }
+
+function makeChartQ(id, labels, data, label, color, unit) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return null;
+  // Filter to quarters that have data
+  const pts = labels.map((l,i) => ({x:l, y:data[i]})).filter(p => p.y !== null && p.y !== undefined);
+  if (!pts.length) return null;
+  return new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: pts.map(p=>p.x),
+      datasets: [{
+        label, data: pts.map(p=>p.y),
+        backgroundColor: color+'55', borderColor: color,
+        borderWidth: 1.5, borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{display:false}, tooltip:{callbacks:{label:c=>`${c.parsed.y.toFixed(1)}${unit}`}} },
+      scales: {
+        x: { grid:{display:false}, ticks:{font:{size:11},color:'#888'} },
+        y: { grid:{color:'rgba(0,0,0,0.05)'}, ticks:{font:{size:11},color:'#888',callback:v=>v===null?'':fmt1(v)+unit} }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+function trendArrow(arr) {
+  const v = arr.filter(x => x !== null && x !== undefined);
+  if (v.length < 2) return '—';
+  const d = v[v.length-1] - v[0];
+  return d > 0 ? '&#8679;' : d < 0 ? '&#8681;' : '&rarr;';
+}
+
+function trendClass(arr, dir) {
+  const v = arr.filter(x => x !== null && x !== undefined);
+  if (v.length < 2) return 'flat';
+  const d = v[v.length-1] - v[0];
+  if (d === 0) return 'flat';
+  if (dir === 'up')    return d > 0 ? 'up' : 'down';
+  if (dir === 'down')  return d < 0 ? 'up' : 'down';
+  return 'flat';
+}
+
+function statusChip(val, k) {
+  if (val === null || val === undefined) return '<span class="chip chip-b">N/A</span>';
+  let ok = false, warn = false;
+  if (k.dir === 'up')    { ok = val >= k.tgt; warn = val >= k.tgt * 0.85; }
+  if (k.dir === 'down')  { ok = val <= k.tgt; warn = val <= k.tgt * 1.2; }
+  if (k.dir === 'range') { ok = val >= k.tgt[0] && val <= k.tgt[1]; warn = val >= k.tgt[0]*0.8 && val <= k.tgt[1]*1.2; }
+  if (k.dir === 'trend') { return '<span class="chip chip-g">Improving</span>'; }
+  const cls = ok ? 'chip-g' : warn ? 'chip-a' : 'chip-r';
+  const lbl = ok ? 'On track' : warn ? 'Monitor' : 'Off track';
+  return `<span class="chip ${cls}">${lbl}</span>`;
+}
+
+function scClass(s) { return s>=75?'up':s>=50?'warn':'down'; }
+function scLabel(s) { return s>=75?'Healthy':s>=50?'Watch':'At Risk'; }
+
+// ═══════════════════════════════════════════════════════════════════════
+// UI CONTROLS
+// ═══════════════════════════════════════════════════════════════════════
+function switchTab(t) {
+  const orgTab  = document.getElementById('orgTab');
+  const podsTab = document.getElementById('podsTab');
+  // Remove hidden class and set display directly — avoids !important clash
+  orgTab.classList.remove('hidden');
+  podsTab.classList.remove('hidden');
+  orgTab.style.display  = t === 'org'  ? 'block' : 'none';
+  podsTab.style.display = t === 'pods' ? 'block' : 'none';
+  document.getElementById('tab-org').classList.toggle('active',  t === 'org');
+  document.getElementById('tab-pods').classList.toggle('active', t === 'pods');
+  if (t === 'pods' && state.loaded) renderPodGrid();
+}
+
+function setMode(m) {
+  state.mode = m;
+  const showMonth = m === 'month';
+  document.getElementById('btnMonth').classList.toggle('active',    showMonth);
+  document.getElementById('btnQuarter').classList.toggle('active', !showMonth);
+  document.getElementById('monthSelect').style.display   = showMonth ? 'block' : 'none';
+  document.getElementById('quarterSelect').style.display = showMonth ? 'none'  : 'block';
+  document.getElementById('pillDivider').style.display   = 'block';
+  document.getElementById('monthlyView').style.display   = showMonth ? 'block' : 'none';
+  const qv = document.getElementById('quarterlyView');
+  qv.classList.remove('hidden');
+  qv.style.display = showMonth ? 'none' : 'block';
+  if (state.loaded) {
+    // Render correct health banner for the active view only
+    if (showMonth) { renderMonthlyOrg(); renderPodGrid(); }
+    else { renderQuarterlyOrg(); }
+  }
+}
+
+function selectMonth(mi) {
+  state.monthIdx = mi;
+  const sel = document.getElementById('monthSelect');
+  if (sel) sel.value = mi;
+  if (state.loaded) { renderMonthlyOrg(); renderPodGrid(); }
+}
+
+function selectQuarter(qi) {
+  state.quarterIdx = qi;
+  const sel = document.getElementById('quarterSelect');
+  if (sel) sel.value = qi;
+  if (state.loaded) renderQuarterlyOrg();
+}
+
+function initPills() {
+  const lastActiveIdx = ACTIVE_MONTHS.length > 0
+    ? MONTHS.indexOf(ACTIVE_MONTHS[ACTIVE_MONTHS.length - 1])
+    : 2;
+
+  // Month dropdown — only show months up to and including last active month
+  const ms = document.getElementById('monthSelect');
+  if (ms) {
+    ms.innerHTML = MONTHS.slice(0, lastActiveIdx + 1).map((m, i) => {
+      const hasData = ACTIVE_MONTHS.includes(m);
+      return `<option value="${i}" ${i === state.monthIdx ? 'selected' : ''} ${!hasData ? 'style="color:var(--text3)"' : ''}>${m}${hasData ? '' : ' (no data)'}</option>`;
+    }).join('');
+  }
+
+  // Quarter dropdown — only show quarters that overlap with active months
+  const qs = document.getElementById('quarterSelect');
+  if (qs) {
+    qs.innerHTML = QUARTER_KEYS.map((q, i) => {
+      const hasData = QUARTERS[q].some(mi => ACTIVE_MONTHS.includes(MONTHS[mi]));
+      return `<option value="${i}" ${i === state.quarterIdx ? 'selected' : ''} ${!hasData ? 'style="color:var(--text3)"' : ''}>${q}${hasData ? '' : ' (no data)'}</option>`;
+    }).join('');
+  }
+}
+
+function setBanner(type, msg) {
+  const b = document.getElementById('banner');
+  b.className = `banner banner-${type}`;
+  document.getElementById('bannerMsg').textContent = msg;
+}
+
+function setUpdateBtn(loading) {
+  const btn = document.getElementById('updateBtn');
+  btn.classList.toggle('loading', loading);
+  document.getElementById('updateIcon').innerHTML = loading ? '<span class="spinner"></span>' : '&#8635;';
+  document.getElementById('updateLabel').textContent = loading ? 'Loading...' : 'Update Dashboard';
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// MANUAL DATA SYSTEM
+// ═══════════════════════════════════════════════════════════════════════
+
+// KPIs that are manually entered, their scope, and which pods they apply to
+const MANUAL_KPIS = [
+  { key:'aiAdopt', label:'AI Adoption',         unit:'%',      scope:'Org-wide',  step:'1',   pods:null,
+    hint:'% of engineers using AI tools (Copilot / Claude). Single value applied to all pods.' },
+  { key:'aiProd',  label:'AI Productivity',     unit:'SP/M',   scope:'Org-wide',  step:'0.1', pods:null,
+    hint:'Story points delivered per million tokens consumed. Org-level metric.' },
+  { key:'adopt',   label:'Product Adoption',    unit:'%',      scope:'Per-pod',   step:'0.1', pods:['QPR','Build','Mobile'],
+    hint:'Active accounts ÷ licensed accounts (Pendo). Only 3 pods instrumented. Org avg = mean of active pods.' },
+  { key:'t2fu',    label:'Time to First Usage', unit:'days',   scope:'Per-pod',   step:'0.1', pods:['Build'],
+    hint:'Days from release to first user action in Pendo. Currently only Build pod active.' },
+];
+
+// panel state
+let miState = { monthIdx: 2, podName: null }; // null pod = org-wide view
+
+function initManualInputs() {
+  // Build manualInputs structure: { kpiKey: { podName|'_org': [12 months] } }
+  const m = {};
+  MANUAL_KPIS.forEach(k => {
+    m[k.key] = {};
+    if (k.pods) {
+      k.pods.forEach(p => { m[k.key][p] = Array(12).fill(null); });
+    } else {
+      m[k.key]['_org'] = Array(12).fill(null);
+    }
+  });
+  // Pre-populate known Q1 values
+  m.aiAdopt._org = [70,80,95,...Array(9).fill(null)];
+  m.aiProd._org  = [null,25.5,190.6,...Array(9).fill(null)];
+  state.manualInputs = m;
+}
+
+function getManualVal(kpiKey, podName, mi) {
+  const m = state.manualInputs;
+  if (!m[kpiKey]) return null;
+  const scope = MANUAL_KPIS.find(k=>k.key===kpiKey);
+  if (!scope) return null;
+  if (scope.pods) {
+    // per-pod: if podName matches, return it; else null
+    return (m[kpiKey][podName] && m[kpiKey][podName][mi] !== undefined)
+      ? m[kpiKey][podName][mi] : null;
+  } else {
+    return m[kpiKey]['_org'] ? m[kpiKey]['_org'][mi] : null;
+  }
+}
+
+function setManualVal(kpiKey, podOrOrg, mi, val) {
+  const m = state.manualInputs;
+  if (!m[kpiKey]) return;
+  const key = podOrOrg || '_org';
+  if (!m[kpiKey][key]) m[kpiKey][key] = Array(12).fill(null);
+  m[kpiKey][key][mi] = val;
+}
+
+function applyManualData() {
+  // Push all manual values into podData and orgData then re-render
+  const m = state.manualInputs;
+  const o = state.orgData;
+
+  MONTHS.forEach((_, mi) => {
+    // AI Adoption (org-wide → all pods)
+    const aiA = getManualVal('aiAdopt', '_org', mi);
+    o['aiAdopt_'+mi] = aiA;
+    POD_NAMES.forEach(p => { if (state.podData[p]) state.podData[p]['aiAdopt_'+mi] = aiA; });
+
+    // AI Productivity (org-wide)
+    const aiP = getManualVal('aiProd', '_org', mi);
+    o['aiProd_'+mi] = aiP;
+    POD_NAMES.forEach(p => { if (state.podData[p]) state.podData[p]['aiProd_'+mi] = aiP; });
+
+    // Product Adoption (per-pod, org = avg of active)
+    const adoptPods = MANUAL_KPIS.find(k=>k.key==='adopt').pods;
+    const adoptVals = [];
+    POD_NAMES.forEach(p => {
+      if (!state.podData[p]) return;
+      if (adoptPods.includes(p)) {
+        const v = getManualVal('adopt', p, mi);
+        state.podData[p]['adopt_'+mi] = v;
+        if (v !== null) adoptVals.push(v);
+      } else {
+        state.podData[p]['adopt_'+mi] = null;
+      }
+    });
+    o['adopt_'+mi] = adoptVals.length > 0
+      ? +(adoptVals.reduce((a,b)=>a+b,0)/adoptVals.length).toFixed(1) : null;
+
+    // T2FU (per-pod, org = avg of active)
+    const t2fuPods = MANUAL_KPIS.find(k=>k.key==='t2fu').pods;
+    const t2fuVals = [];
+    POD_NAMES.forEach(p => {
+      if (!state.podData[p]) return;
+      if (t2fuPods.includes(p)) {
+        const v = getManualVal('t2fu', p, mi);
+        state.podData[p]['t2fu_'+mi] = v;
+        if (v !== null) t2fuVals.push(v);
+      }
+    });
+    o['t2fu_'+mi] = t2fuVals.length > 0
+      ? +(t2fuVals.reduce((a,b)=>a+b,0)/t2fuVals.length).toFixed(1) : null;
+  });
+
+  // Recompute pod health scores
+  POD_NAMES.forEach(p => {
+    if (state.podData[p]) state.podData[p].score = calcPodScore(state.podData[p]);
+  });
+
+  if (state.loaded) renderAll();
+}
+
+function openManualInputs() {
+  miState.monthIdx = state.monthIdx;
+  miState.podName  = null;
+  document.getElementById('manualPanel').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  renderMIPanel();
+}
+
+function closeManualInputs() {
+  document.getElementById('manualPanel').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function renderMIPanel() {
+  const mi = miState.monthIdx;
+  const pod = miState.podName;
+
+  // Month pills
+  const mp = document.getElementById('miMonthPills');
+  mp.innerHTML = MONTHS.slice(0, ACTIVE_MONTHS.length + 3).map((m, i) => {
+    const hasData = ACTIVE_MONTHS.includes(m);
+    const active = i === miState.monthIdx;
+    return `<button onclick="miSelectMonth(${i})" style="
+      border:0.5px solid ${active?'var(--navy)':'var(--border)'};
+      border-radius:20px;padding:4px 12px;font-size:12px;cursor:pointer;
+      background:${active?'var(--navy)':'none'};
+      color:${active?'#fff':'var(--text2)'};
+      opacity:${hasData?1:0.45};">${m}</button>`;
+  }).join('');
+
+  // Pod pills — "All (Org)" + each pod
+  const pp = document.getElementById('miPodPills');
+  const pods = ['— Org-wide —', ...POD_NAMES];
+  pp.innerHTML = pods.map((p, i) => {
+    const isOrg = i === 0;
+    const active = isOrg ? pod === null : pod === p;
+    return `<button onclick="miSelectPod(${isOrg?'null':`'${p}'`})" style="
+      border:0.5px solid ${active?'var(--navy)':'var(--border)'};
+      border-radius:20px;padding:4px 12px;font-size:12px;cursor:pointer;
+      background:${active?'var(--navy)':'none'};
+      color:${active?'#fff':'var(--text2)'};">${isOrg?'Org-wide':p}</button>`;
+  }).join('');
+
+  // Column header
+  document.getElementById('miColHeader').textContent =
+    `${MONTHS[mi]} — ${pod || 'Org-wide'}`;
+
+  // Entry table
+  const tbody = document.getElementById('miTableBody');
+  tbody.innerHTML = '';
+  MANUAL_KPIS.forEach((k, ri) => {
+    let applicable = true;
+    let scopeLabel = k.scope;
+    let inputPod = '_org';
+    let showInput = true;
+    let orgViewHint = '';
+
+    if (k.pods) {
+      if (pod === null) {
+        // Org-wide view: per-pod KPIs are read-only — show hint to switch to pod
+        scopeLabel = k.pods.join(', ');
+        showInput = false;
+        orgViewHint = `<div style="margin-top:6px;font-size:11px;color:var(--blue);cursor:pointer"
+          onclick="miSelectPod('${k.pods[0]}')">
+          ↗ Select a pod above to enter values</div>`;
+      } else if (!k.pods.includes(pod)) {
+        applicable = false;
+        showInput = false;
+      } else {
+        inputPod = pod;
+      }
+    }
+
+    // Compute current display value
+    const currentVal = k.pods
+      ? (pod && k.pods.includes(pod) ? getManualVal(k.key, pod, mi) : null)
+      : getManualVal(k.key, '_org', mi);
+
+    // Org avg for per-pod KPIs shown in org-wide view
+    let orgAvgDisplay = '';
+    if (k.pods && pod === null) {
+      const vals = k.pods.map(p => getManualVal(k.key, p, mi)).filter(v => v !== null);
+      orgAvgDisplay = vals.length > 0
+        ? `Org avg: <strong>${+(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1)} ${k.unit}</strong>`
+        : 'No data entered yet';
+    }
+
+    // Q1 trend
+    const trendVals = ACTIVE_MONTHS.map((_, i) =>
+      k.pods
+        ? (pod && k.pods.includes(pod) ? getManualVal(k.key, pod, i) : null)
+        : getManualVal(k.key, '_org', i)
+    );
+    const trendStr = trendVals.map(v => v !== null ? v : '—').join(' → ');
+    const first = trendVals.find(v=>v!==null), last = [...trendVals].reverse().find(v=>v!==null);
+    const trendDir = (first !== null && last !== null && last !== first)
+      ? (last > first ? '▲' : '▼') : '→';
+    const isDown = k.unit === 'days';
+    const trendColor = trendDir==='→' ? 'var(--text2)'
+      : (isDown ? (trendDir==='▼'?'var(--green)':'var(--red)') : (trendDir==='▲'?'var(--green)':'var(--red)'));
+
+    const bg = ri%2===0 ? '#fff' : 'var(--bg)';
+    const disabledStyle = !applicable ? 'opacity:0.35;' : '';
+
+    tbody.innerHTML += `<tr style="background:${bg};${disabledStyle}">
+      <td style="padding:14px 16px;">
+        <div style="font-weight:500;font-size:13px">${k.label}</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">${k.hint}</div>
+        ${orgViewHint}
+      </td>
+      <td style="padding:14px 16px;font-size:11px;color:var(--text2)">${scopeLabel}</td>
+      <td style="padding:14px 16px;text-align:center;font-size:12px;color:var(--text2)">${k.unit}</td>
+      <td style="padding:14px 16px;text-align:center;">
+        ${showInput ? `
+          <input type="number" step="${k.step}"
+            value="${currentVal !== null ? currentVal : ''}"
+            placeholder="Enter value"
+            oninput="miOnChange('${k.key}','${inputPod}',${mi},this.value)"
+            style="width:130px;border:1.5px solid var(--border);border-radius:6px;
+                   padding:8px 12px;font-size:14px;text-align:center;
+                   background:#fff;color:var(--text);outline:none;
+                   box-shadow:0 1px 3px rgba(0,0,0,.06);"
+            onfocus="this.style.borderColor='var(--navy)';this.style.boxShadow='0 0 0 3px rgba(26,53,87,.12)'"
+            onblur="this.style.borderColor='var(--border)';this.style.boxShadow='0 1px 3px rgba(0,0,0,.06)'">
+        ` : k.pods && pod === null ? `
+          <div style="font-size:12px;color:var(--text2)">${orgAvgDisplay}</div>
+        ` : `
+          <span style="font-size:12px;color:var(--text2)">N/A for this pod</span>
+        `}
+      </td>
+      <td style="padding:14px 16px;text-align:center;">
+        <div style="font-size:11px;color:var(--text2)">${trendStr}</div>
+        <div style="font-size:15px;font-weight:700;color:${trendColor};margin-top:2px">${trendDir}</div>
+      </td>
+    </tr>`;
+  });
+
+  // All-months grid
+  renderMIGrid();
+}
+
+function renderMIGrid() {
+  const pod = miState.podName;
+  document.getElementById('miGridPodLabel').textContent = pod || 'Org-wide';
+  // Use real MONTHS indices, not ACTIVE_MONTHS array positions
+  const activeMos = ACTIVE_MONTHS.map(m => MONTHS.indexOf(m)).filter(i => i >= 0);
+
+  const thead = document.getElementById('miGridHead');
+  const monthCols = activeMos.map(i=>`<th style="padding:10px 16px;text-align:center;font-size:12px;
+    font-weight:500;color:var(--text2);border-bottom:0.5px solid var(--border)">${MONTHS[i]}</th>`).join('');
+  const trendPeriod = ACTIVE_MONTHS.length > 0
+    ? `${ACTIVE_MONTHS[0]} → ${ACTIVE_MONTHS[ACTIVE_MONTHS.length-1]}` : 'Trend';
+  thead.innerHTML = `<tr style="background:var(--bg2)">
+    <th style="padding:10px 16px;text-align:left;font-size:11px;font-weight:500;color:var(--text2);
+               border-bottom:0.5px solid var(--border);width:220px">KPI</th>
+    ${monthCols}
+    <th style="padding:10px 16px;text-align:center;font-size:11px;font-weight:500;color:var(--text2);
+               border-bottom:0.5px solid var(--border)">${trendPeriod}</th>
+  </tr>`;
+
+  const tbody = document.getElementById('miGridBody');
+  tbody.innerHTML = MANUAL_KPIS.map((k, ri) => {
+    const hasPodData = !k.pods || (pod && k.pods.includes(pod));
+    const bg = ri%2===0 ? '#fff' : 'var(--bg)';
+
+    const cells = activeMos.map(mi => {
+      let v = null;
+      if (!k.pods) {
+        v = getManualVal(k.key, '_org', mi);
+      } else if (pod && k.pods.includes(pod)) {
+        v = getManualVal(k.key, pod, mi);
+      } else if (pod === null) {
+        // org view: show avg across pods
+        const podVals = k.pods.map(p => getManualVal(k.key, p, mi)).filter(x=>x!==null);
+        v = podVals.length > 0 ? +(podVals.reduce((a,b)=>a+b,0)/podVals.length).toFixed(1) : null;
+      }
+      const isActive = mi === miState.monthIdx;
+      const dispColor = isActive ? 'var(--navy)' : 'var(--text)';
+      return `<td style="padding:10px 16px;text-align:center;font-size:13px;
+        background:${isActive?'#EFF6FF':'transparent'};
+        font-weight:${isActive?'700':'400'};color:${dispColor}">
+        ${v !== null ? v+' <span style=\'font-size:10px;color:var(--text2)\'>'+k.unit+'</span>' : '<span style=\'color:var(--text3)\'>—</span>'}</td>`;
+    }).join('');
+
+    const vals = activeMos.map(mi => {
+      if (!k.pods) return getManualVal(k.key, '_org', mi);
+      if (pod && k.pods.includes(pod)) return getManualVal(k.key, pod, mi);
+      return null;
+    }).filter(v=>v!==null);
+
+    const trendDir = vals.length>1 ? (vals[vals.length-1]>vals[0]?'▲':'▼') : '→';
+    const isDown = k.unit==='days';
+    const trendCol = trendDir==='→'?'var(--text2)':
+      (isDown?(trendDir==='▼'?'var(--green)':'var(--red)'):(trendDir==='▲'?'var(--green)':'var(--red)'));
+
+    const rowNote = k.pods && pod === null
+      ? `<div style="font-size:10px;color:var(--text3);margin-top:1px">org avg</div>` : '';
+
+    return `<tr style="background:${bg};opacity:${hasPodData||pod===null?1:0.35}">
+      <td style="padding:10px 16px;">
+        <div style="font-weight:500;font-size:12px">${k.label}</div>
+        ${rowNote}
+      </td>
+      ${cells}
+      <td style="padding:10px 16px;text-align:center;font-weight:700;font-size:15px;color:${trendCol}">${trendDir}</td>
+    </tr>`;
+  }).join('');
+}
+
+function miOnChange(kpiKey, podOrOrg, mi, rawVal) {
+  const val = rawVal === '' ? null : parseFloat(rawVal);
+  setManualVal(kpiKey, podOrOrg === '_org' ? null : podOrOrg, mi, isNaN(val) ? null : val);
+  applyManualData();
+  renderMIPanel();
+  setBanner('success', `${MANUAL_KPIS.find(k=>k.key===kpiKey)?.label} updated — saving...`);
+  // Auto-save to GitHub (debounced 1.5s to avoid hammering API on fast typing)
+  clearTimeout(window._miSaveTimer);
+  window._miSaveTimer = setTimeout(async () => {
+    const ok = await saveManualDataToGitHub();
+    setBanner(ok ? 'success' : 'warn',
+      ok ? `${MANUAL_KPIS.find(k=>k.key===kpiKey)?.label} saved — all devices will see this value.`
+         : `Value updated locally. Could not save to GitHub — check connection.`);
+  }, 1500);
+}
+
+function miSelectMonth(idx) {
+  miState.monthIdx = idx;
+  renderMIPanel();
+}
+
+function miSelectPod(pod) {
+  miState.podName = pod;
+  renderMIPanel();
+}
+
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// MANUAL DATA PERSISTENCE - GitHub repo (manual_data.json)
+// ═══════════════════════════════════════════════════════════════════════
+
+async function saveManualDataToGitHub() {
+  const token = getGHToken();
+  if (!token) {
+    setBanner('warn', 'Enter your GitHub token to persist manual inputs across devices.');
+    return false;
+  }
+  const content = btoa(JSON.stringify(state.manualInputs, null, 2));
+  const getUrl  = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/manual_data.json`;
+  const ghHdrs  = {
+    Authorization: `Bearer ${token}`,
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+    'Content-Type': 'application/json',
+  };
+
+  // Get existing SHA if file exists
+  let sha = '';
+  try {
+    const existing = await fetch(getUrl, { headers: ghHdrs });
+    if (existing.ok) { const d = await existing.json(); sha = d.sha; }
+  } catch {}
+
+  const body = {
+    message: `Update manual inputs - ${new Date().toISOString().slice(0,16)}`,
+    content,
+    branch: 'main',
+  };
+  if (sha) body.sha = sha;
+
+  try {
+    const resp = await fetch(getUrl, {
+      method: 'PUT',
+      headers: ghHdrs,
+      body: JSON.stringify(body)
+    });
+    if (resp.ok) {
+      console.log('Manual data saved to GitHub');
+      return true;
+    }
+  } catch(e) {
+    console.warn('Could not save to GitHub:', e.message);
+  }
+  return false;
+}
+
+async function loadManualDataFromGitHub() {
+  const url = `https://raw.githubusercontent.com/${GH_OWNER}/${GH_REPO}/main/manual_data.json?t=${Date.now()}`;
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) return false; // 404 = no manual data saved yet, silent fail
+    const data = await resp.json();
+    Object.keys(data).forEach(kpiKey => {
+      if (!state.manualInputs[kpiKey]) state.manualInputs[kpiKey] = {};
+      Object.keys(data[kpiKey]).forEach(podKey => {
+        state.manualInputs[kpiKey][podKey] = data[kpiKey][podKey];
+      });
+    });
+    return true;
+  } catch(e) {
+    return false; // network error — silent fail
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// GITHUB ACTIONS - Trigger ADO data refresh
+// ═══════════════════════════════════════════════════════════════════════
+function getGHToken() {
+  let token = sessionStorage.getItem('gh_token');
+  if (!token) {
+    token = prompt(
+      'Enter your GitHub Personal Access Token (PAT).\n\nRequired permissions: Actions (write) + Contents (write)\nStored only in your browser session — never saved to disk.',
+      ''
+    );
+    if (token && token.trim()) sessionStorage.setItem('gh_token', token.trim());
+  }
+  return token ? token.trim() : null;
+}
+
+function clearGHToken() {
+  sessionStorage.removeItem('gh_token');
+  setBanner('info', 'GitHub token cleared from session. You will be prompted again on next use.');
+}
+
+async function triggerADORefresh() {
+  const btn = document.getElementById('refreshBtn');
+  const icon = document.getElementById('refreshIcon');
+  const label = document.getElementById('refreshLabel');
+
+  const token = getGHToken();
+  if (!token) {
+    setBanner('error', 'No GitHub token provided. Cannot trigger ADO refresh.');
+    return;
+  }
+
+  btn.classList.add('loading');
+  icon.innerHTML = '<span class="spinner"></span>';
+  label.textContent = 'Triggering...';
+  setBanner('info', '⏳ Triggering ADO pull — pulling 2026-04-01 to today. CSVs will be refreshed in ~3–5 mins...');
+
+  try {
+    const resp = await fetch(
+      `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/actions/workflows/${GH_WORKFLOW}/dispatches`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ref: 'main' })
+      }
+    );
+
+    if (resp.status === 204) {
+      label.textContent = '~4m remaining';
+      setBanner('info', '⏳ ADO pull running — dashboard will auto-reload when complete (~4 mins).');
+
+      // Count down and auto-reload after 4 minutes
+      let remaining = 240;
+      const countdown = setInterval(() => {
+        remaining -= 10;
+        if (remaining <= 0) {
+          clearInterval(countdown);
+          label.textContent = 'Reloading...';
+          setBanner('info', 'Reloading dashboard with fresh ADO data...');
+          loadData().then(() => {
+            btn.classList.remove('loading');
+            icon.innerHTML = '&#9652;';
+            label.textContent = 'Refresh from ADO';
+          });
+        } else {
+          label.textContent = `~${Math.ceil(remaining/60)}m remaining`;
+        }
+      }, 10000);
+
+    } else if (resp.status === 401) {
+      sessionStorage.removeItem('gh_token');
+      setBanner('error', 'GitHub token invalid or expired — cleared. Try again.');
+      btn.classList.remove('loading');
+      icon.innerHTML = '&#9652;';
+      label.textContent = 'Refresh from ADO';
+    } else {
+      const err = await resp.text();
+      setBanner('error', `Failed to trigger (${resp.status}). Check GitHub token. ${err}`);
+      btn.classList.remove('loading');
+      icon.innerHTML = '&#9652;';
+      label.textContent = 'Refresh from ADO';
+    }
+  } catch(e) {
+    setBanner('error', `Could not trigger GitHub Actions: ${e.message}`);
+    btn.classList.remove('loading');
+    icon.innerHTML = '&#9652;';
+    label.textContent = 'Refresh from ADO';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════
+initManualInputs();
+loadSampleData();
+initPills();
+state.monthIdx = MONTHS.indexOf(ACTIVE_MONTHS[ACTIVE_MONTHS.length - 1]);
+const initMonthSel = document.getElementById('monthSelect');
+if (initMonthSel) initMonthSel.value = state.monthIdx;
+renderAll();
+
+// Then try to load live CSVs on top (works on GitHub Pages, fails silently locally)
+if (!window.location.protocol.startsWith('file')) {
+  loadData().catch(() => {});
+  loadManualDataFromGitHub().then(loaded => {
+    if (loaded) { applyManualData(); renderAll(); }
+  });
+} else {
+  setBanner('info', 'Running locally — showing static Q1 data. Deploy to GitHub Pages to load live CSVs.');
+}
+</script>
+</body>
+</html>
