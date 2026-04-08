@@ -44,6 +44,10 @@ jobs:
           $periodStart = [datetime]::ParseExact($StartDate, "yyyy-MM-dd", $null)
           $periodEnd   = [datetime]::ParseExact($EndDate,   "yyyy-MM-dd", $null)
 
+          # WIQL needs dates in yyyy-MM-dd format — confirmed working format
+          $WiqlStart = $StartDate   # "2026-04-01"
+          $WiqlEnd   = $EndDate     # "2026-04-08"
+
           Write-Host "Date range: $StartDate to $EndDate"
 
           if ([string]::IsNullOrWhiteSpace($PAT)) {
@@ -145,12 +149,20 @@ jobs:
           Write-Host "Pulling PBIs..."
           $allPBIs = [System.Collections.Generic.List[PSCustomObject]]::new()
           foreach ($proj in $PROJECTS) {
+            # First check total closed PBIs without date filter (diagnostic)
+            $qAll = "SELECT [System.Id] FROM WorkItems " +
+                    "WHERE [System.TeamProject] = '$proj' " +
+                    "AND [System.WorkItemType] IN ('Product Backlog Item','Architecture') " +
+                    "AND [System.State] IN ('Closed','Done') " +
+                    "ORDER BY [System.Id]"
+            $refsAll = Invoke-WiqlQuery "$proj (all-time)" $qAll
+
             $q = "SELECT [System.Id] FROM WorkItems " +
                  "WHERE [System.TeamProject] = '$proj' " +
                  "AND [System.WorkItemType] IN ('Product Backlog Item','Architecture') " +
                  "AND [System.State] IN ('Closed','Done') " +
-                 "AND [Microsoft.VSTS.Common.ClosedDate] >= '$StartDate' " +
-                 "AND [Microsoft.VSTS.Common.ClosedDate] <= '$EndDate' " +
+                 "AND [Microsoft.VSTS.Common.ClosedDate] >= '$WiqlStart' " +
+                 "AND [Microsoft.VSTS.Common.ClosedDate] <= '$WiqlEnd' " +
                  "ORDER BY [System.Id]"
             $refs = Invoke-WiqlQuery $proj $q
             if ($refs.Count -eq 0) { continue }
@@ -199,8 +211,8 @@ jobs:
             $q = "SELECT [System.Id] FROM WorkItems " +
                  "WHERE [System.TeamProject] = '$proj' " +
                  "AND [System.WorkItemType] = 'Bug' " +
-                 "AND [System.CreatedDate] >= '$StartDate' " +
-                 "AND [System.CreatedDate] <= '$EndDate' " +
+                 "AND [System.CreatedDate] >= '$WiqlStart' " +
+                 "AND [System.CreatedDate] <= '$WiqlEnd' " +
                  "AND [System.State] NOT IN ('Deferred','Removed','Rejected') " +
                  "ORDER BY [System.Id]"
             $refs = Invoke-WiqlQuery $proj $q
@@ -241,8 +253,8 @@ jobs:
                  "WHERE [System.TeamProject] = '$proj' " +
                  "AND [System.WorkItemType] = 'Feature' " +
                  "AND [System.State] IN ('Closed','Done') " +
-                 "AND [Microsoft.VSTS.Common.ClosedDate] >= '$StartDate' " +
-                 "AND [Microsoft.VSTS.Common.ClosedDate] <= '$EndDate' " +
+                 "AND [Microsoft.VSTS.Common.ClosedDate] >= '$WiqlStart' " +
+                 "AND [Microsoft.VSTS.Common.ClosedDate] <= '$WiqlEnd' " +
                  "ORDER BY [System.Id]"
             $refs = Invoke-WiqlQuery $proj $q
             if ($refs.Count -eq 0) { continue }
