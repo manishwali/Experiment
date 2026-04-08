@@ -20,7 +20,7 @@ jobs:
           $PAT         = $env:ADO_PAT
           $ORG         = "aurigomasterworks"
           $OUTDIR      = $env:GITHUB_WORKSPACE
-          $StartDate   = "2026-04-01"
+          $StartDate   = "2026-03-31"
           $EndDate     = (Get-Date).ToString("yyyy-MM-dd")
           $DV_CAP_DAYS = 365
 
@@ -147,7 +147,8 @@ jobs:
 
           # ── PBIs ─────────────────────────────────────────────────────────
           Write-Host "[ 2/4 ] Pulling PBIs..."
-          $allPBIs = [System.Collections.Generic.List[PSCustomObject]]::new()
+          $allPBIs    = [System.Collections.Generic.List[PSCustomObject]]::new()
+          $aprilStart = [datetime]::Parse("2026-04-01")
           foreach ($proj in $PROJECTS) {
             $wiql = "SELECT [System.Id] FROM WorkItems " +
                     "WHERE [System.TeamProject] = '$proj' " +
@@ -165,6 +166,8 @@ jobs:
               $createdDate = Get-FieldValue $f "System.CreatedDate"
               $ctDate      = Get-FieldValue $f "Custom.CT_InProgress"
               $closedDt    = if ($closedDate)  { try { [datetime]::Parse($closedDate.Substring(0,10))  } catch { $null } } else { $null }
+              # Skip items closed before April 1 (caught by the 1-day buffer in StartDate)
+              if ($closedDt -and $closedDt -lt $aprilStart) { continue }
               $createdDt   = if ($createdDate) { try { [datetime]::Parse($createdDate.Substring(0,10)) } catch { $null } } else { $null }
               $ctDt        = if ($ctDate)      { try { [datetime]::Parse($ctDate.Substring(0,10))      } catch { $null } } else { $null }
               $dvDays = ""
@@ -197,13 +200,14 @@ jobs:
 
           # ── BUGS ─────────────────────────────────────────────────────────
           Write-Host "[ 3/4 ] Pulling bugs..."
+          $bugStart    = "2026-04-01"
           $allBugs     = [System.Collections.Generic.List[PSCustomObject]]::new()
           $prodOrigins = @("Customer", "Solution Engineering", "Sustenance Engineering")
           foreach ($proj in $PROJECTS) {
             $wiql = "SELECT [System.Id] FROM WorkItems " +
                     "WHERE [System.TeamProject] = '$proj' " +
                     "AND [System.WorkItemType] = 'Bug' " +
-                    "AND [System.CreatedDate] >= '$StartDate' " +
+                    "AND [System.CreatedDate] >= '$bugStart' " +
                     "AND [System.CreatedDate] <= '$EndDate' " +
                     "AND [System.State] NOT IN ('Deferred', 'Removed', 'Rejected') " +
                     "ORDER BY [System.Id]"
@@ -257,6 +261,8 @@ jobs:
               $closedDate = Get-FieldValue $f "Microsoft.VSTS.Common.ClosedDate"
               $demoDt     = if ($demoDate)   { try { [datetime]::Parse($demoDate.Substring(0,10))   } catch { $null } } else { $null }
               $closedDt   = if ($closedDate) { try { [datetime]::Parse($closedDate.Substring(0,10)) } catch { $null } } else { $null }
+              # Skip items closed before April 1
+              if ($closedDt -and $closedDt -lt $aprilStart) { continue }
               $month      = if ($closedDt) { $closedDt.ToString("MMM-yy") } else { "" }
               $minCT = ""; $ttdDays = ""
               if ($demoDt) {
