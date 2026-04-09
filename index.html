@@ -324,6 +324,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 <div class="tabs">
   <div class="tab active" id="tab-org"  onclick="switchTab('org')">Org Summary</div>
   <div class="tab"        id="tab-pods" onclick="switchTab('pods')">Pod View</div>
+  <div class="tab"        id="tab-faq"  onclick="switchTab('faq')">&#10067; FAQ</div>
 </div>
 
 <!-- ── CONTENT ── -->
@@ -627,6 +628,37 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     </div>
 
   </div><!-- /podsTab -->
+
+  <!-- ── FAQ TAB ── -->
+  <div id="faqTab" style="display:none; max-width:1100px; margin:0 auto; padding:24px 24px 40px;">
+    <div style="margin-bottom:24px;">
+      <h2 style="font-size:20px;font-weight:600;color:var(--text);margin-bottom:4px">Dashboard Knowledge Base</h2>
+      <p style="font-size:13px;color:var(--text2)">50+ questions about KPI definitions, calculations, data sources and how to interpret the dashboard.</p>
+    </div>
+    <div style="position:relative;margin-bottom:24px;">
+      <input id="faqSearchInput" type="text" placeholder="Ask anything... e.g. 'How is Feature Velocity calculated?'"
+        oninput="faqSearch(this.value)"
+        style="width:100%;box-sizing:border-box;padding:14px 48px 14px 18px;
+               border:1.5px solid var(--border);border-radius:10px;font-size:14px;
+               background:#fff;color:var(--text);outline:none;
+               box-shadow:0 2px 8px rgba(0,98,114,.06);"
+        onfocus="this.style.borderColor='var(--navy)';this.style.boxShadow='0 0 0 3px rgba(0,98,114,.12)'"
+        onblur="this.style.borderColor='var(--border)';this.style.boxShadow='0 2px 8px rgba(0,98,114,.06)'">
+      <span style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--text3);">&#128269;</span>
+    </div>
+    <div id="faqAIBox" style="display:none;background:linear-gradient(135deg,#f0f9fa,#e8f4f6);
+         border:1px solid #b8dde3;border-radius:12px;padding:20px 24px;margin-bottom:24px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+        <div style="width:26px;height:26px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;color:#fff;flex-shrink:0;">✦</div>
+        <span style="font-size:11px;font-weight:600;color:var(--navy);text-transform:uppercase;letter-spacing:.06em">AI Answer</span>
+        <span id="faqAIThinking" style="font-size:12px;color:var(--text2);display:none;">Thinking...</span>
+      </div>
+      <div id="faqAIAnswer" style="font-size:14px;color:var(--text);line-height:1.7;"></div>
+    </div>
+    <div id="faqCategories" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;"></div>
+    <div id="faqResultCount" style="font-size:12px;color:var(--text2);margin-bottom:12px;"></div>
+    <div id="faqList"></div>
+  </div>
 
 </div><!-- /content -->
 
@@ -2105,14 +2137,15 @@ function scLabel(s) { return s>=75?'Healthy':s>=50?'Watch':'At Risk'; }
 function switchTab(t) {
   const orgTab  = document.getElementById('orgTab');
   const podsTab = document.getElementById('podsTab');
-  // Remove hidden class and set display directly — avoids !important clash
-  orgTab.classList.remove('hidden');
-  podsTab.classList.remove('hidden');
+  const faqTab  = document.getElementById('faqTab');
   orgTab.style.display  = t === 'org'  ? 'block' : 'none';
   podsTab.style.display = t === 'pods' ? 'block' : 'none';
+  faqTab.style.display  = t === 'faq'  ? 'block' : 'none';
   document.getElementById('tab-org').classList.toggle('active',  t === 'org');
   document.getElementById('tab-pods').classList.toggle('active', t === 'pods');
+  document.getElementById('tab-faq').classList.toggle('active',  t === 'faq');
   if (t === 'pods' && state.loaded) renderPodGrid();
+  if (t === 'faq') initFAQ();
 }
 
 function setMode(m) {
@@ -2745,6 +2778,270 @@ if (!window.location.protocol.startsWith('file')) {
 } else {
   setBanner('info', 'Running locally — showing static Q1 data. Deploy to GitHub Pages to load live CSVs.');
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// FAQ KNOWLEDGE BASE
+// ═══════════════════════════════════════════════════════════════════════
+const FAQ_KB = [
+  // ── GENERAL DASHBOARD ──────────────────────────────────────────────
+  { id:1, cat:'General', q:'What is the Aurigo Product Engineering KPI Dashboard?',
+    a:'A live engineering performance dashboard that tracks 12 KPIs across 9 product pods (Lumina, API-IDM, Build, MW UI, Plan, QPR, Aurigo Reporting, Configplus, Mobile). It combines automated data from Azure DevOps with manually entered metrics from Pendo to give a complete picture of engineering health.' },
+  { id:2, cat:'General', q:'Where does the dashboard data come from?',
+    a:'Two sources: (1) Azure DevOps (ADO) — PBIs, Bugs, Features and Sprints pulled automatically via GitHub Actions every morning at 6:30AM IST. (2) Manual inputs — AI Adoption, AI Productivity, Product Adoption, and Time to First Usage are entered manually via the Manual Inputs panel because they come from Copilot telemetry and Pendo.' },
+  { id:3, cat:'General', q:'How often is the data refreshed?',
+    a:'Automatically every day at 6:30AM IST via GitHub Actions. You can also trigger a manual refresh anytime by clicking "Refresh from ADO" — it pulls data from April 1, 2026 to today and auto-reloads the dashboard after ~4 minutes.' },
+  { id:4, cat:'General', q:'What time period does the dashboard cover?',
+    a:'Q1 2026 (Jan–Mar) is locked as static data validated from the boardroom spreadsheet. From April 2026 onwards, data is live from ADO. The dropdown only shows months with actual data.' },
+  { id:5, cat:'General', q:'What are the 9 pods tracked?',
+    a:'Lumina, API-IDM, Build, MW UI, Plan, QPR, Aurigo Reporting, Configplus, and Mobile. Each pod maps to an ADO project: e.g. "AI ML COE" → Lumina, "Aurigo MW Modernization" → MW UI, "MW Platform 2.0" → Aurigo Reporting.' },
+  { id:6, cat:'General', q:'What does the Org Health Score mean?',
+    a:'A 0–100 composite score calculated as the average of all 9 pod health scores. Each pod is scored based on how many of the 9 active KPIs are on-track (↑ = full score), improving (→ = half score), or off-track (↓ = zero). Healthy = 75+, Watch = 50–74, At Risk = below 50.' },
+  { id:7, cat:'General', q:'How do I navigate between Org Summary and Pod View?',
+    a:'Use the tabs at the top — "Org Summary" shows company-wide KPIs and charts, "Pod View" shows individual pod scorecards. Click any pod card to drill into that pod\'s detailed KPIs, health trend and charts.' },
+
+  // ── KPI DEFINITIONS ────────────────────────────────────────────────
+  { id:8, cat:'KPI Definitions', q:'What is Feature Velocity (FV)?',
+    a:'Feature Velocity measures story points delivered per month — specifically the sum of story points from PBIs (Product Backlog Items) closed/done in that month. It reflects the throughput of the engineering team. Target: upward trend month over month.' },
+  { id:9, cat:'KPI Definitions', q:'What is Discovery Velocity (DV)?',
+    a:'Discovery Velocity is the average number of days from a PBI\'s Created Date to when it entered "In Progress" (CT_InProgress date). It measures how quickly ideas move from backlog to active development. Lower is better — target is a downward trend.' },
+  { id:10, cat:'KPI Definitions', q:'What is Roadmap Alignment?',
+    a:'Roadmap Alignment = (Story points of PBIs that have a parent Feature) ÷ (Total story points) × 100. It measures what percentage of engineering effort is tied to planned roadmap Features. Target: 80%+. Low alignment means teams are doing unplanned work.' },
+  { id:11, cat:'KPI Definitions', q:'What is Tech Debt?',
+    a:'Tech Debt = (Story points of PBIs tagged as "Architectural" in the Value Areas field) ÷ (Total story points) × 100. It shows what proportion of the team\'s effort went to architectural/debt work vs. feature work. Target: below 20%.' },
+  { id:12, cat:'KPI Definitions', q:'What is Sprint Readiness?',
+    a:'Sprint Readiness = (PBIs with CT_InProgress date populated) ÷ (Total PBIs) × 100. The CT_InProgress field is set when a PBI is moved to "In Progress" — its presence indicates the PBI was properly groomed and moved through the sprint process. Target: 80%+.' },
+  { id:13, cat:'KPI Definitions', q:'What is Release Quality (RQ)?',
+    a:'Release Quality = 100 − (Production bugs ÷ Total bugs × 100). Production bugs are those with Bug Origin set to "Customer", "Solution Engineering", or "Sustenance Engineering". A higher score means fewer customer-facing defects. Target: 95%+.' },
+  { id:14, cat:'KPI Definitions', q:'What is Time to Demo (TTD)?',
+    a:'Time to Demo = DemoDate − MIN(CreatedDate of child PBIs). It measures how many days from when the first child PBI was created until the Feature was demoed. Tracks speed of feature delivery from inception to demo. Target: decreasing trend.' },
+  { id:15, cat:'KPI Definitions', q:'What is Product Adoption?',
+    a:'Product Adoption = Active accounts ÷ Licensed accounts × 100, sourced from Pendo analytics. Only 3 pods are instrumented: QPR, Build, and Mobile. The org-level value is the average across these 3 pods. Entered manually via the Manual Inputs panel.' },
+  { id:16, cat:'KPI Definitions', q:'What is AI Adoption?',
+    a:'AI Adoption = % of engineers actively using AI tools (GitHub Copilot or Claude). This is an org-wide metric sourced from Copilot telemetry and internal surveys. Entered manually. Target: 90%+.' },
+  { id:17, cat:'KPI Definitions', q:'What is AI Productivity?',
+    a:'AI Productivity = Story points delivered per million tokens consumed by AI tools. It measures the ROI of AI tool usage in terms of actual engineering output. Entered manually from Copilot telemetry data. Target: upward trend.' },
+  { id:18, cat:'KPI Definitions', q:'What is Time to First Usage (T2FU)?',
+    a:'Time to First Usage = Days from a feature release to the first recorded user action in Pendo. Measures how quickly customers start using new features. Currently only tracked for the Build pod. Entered manually from Pendo data. Target: below 7 days.' },
+  { id:19, cat:'KPI Definitions', q:'What is Business Value Score (BV)?',
+    a:'Business Value Score is the average of BV_Total_Score from closed/done Features in that month. The BV score is set in ADO by product managers and reflects the business impact of each feature. Scored out of 5. Target: 3.5+.' },
+
+  // ── CALCULATIONS ───────────────────────────────────────────────────
+  { id:20, cat:'Calculations', q:'How is the pod health score calculated?',
+    a:'Each pod\'s health score is the weighted average of its KPI scores for the selected month. Each KPI is scored: ↑ On-track = 100, → Monitor = 50, ↓ At Risk = 0. The final score is the mean across all KPIs with available data, expressed as 0–100.' },
+  { id:21, cat:'Calculations', q:'How is Feature Velocity calculated for the org?',
+    a:'Org FV = sum of story points across all 9 pods for that month. Each pod\'s FV = sum of StoryPoints field from PBIs where Month = selected month and WorkItemType = "Product Backlog Item" or "Architecture".' },
+  { id:22, cat:'Calculations', q:'How is Discovery Velocity averaged?',
+    a:'DV = average of (CT_InProgress date − Created date) in days, for all PBIs in that month where both dates are present. Capped at 365 days to exclude outliers. Org DV = weighted average across all pods.' },
+  { id:23, cat:'Calculations', q:'How does the month bucketing work for PBIs?',
+    a:'PBIs are bucketed by their ClosedDate (Microsoft.VSTS.Common.ClosedDate). The workflow uses a 1-day timezone buffer (starting March 31) to handle IST vs UTC differences, then filters strictly in PowerShell to include only items with ClosedDate ≥ April 1.' },
+  { id:24, cat:'Calculations', q:'Why does Q1 data look different from April data?',
+    a:'Q1 data (Jan–Mar) is static — validated and locked from the boardroom spreadsheet. April onwards is live from ADO. Static data is never overwritten by CSV refreshes, ensuring historical accuracy.' },
+  { id:25, cat:'Calculations', q:'How is TTD calculated from child PBIs?',
+    a:'For each Feature with a DemoDate, TTD = DemoDate − MIN(System.CreatedDate of all child PBIs linked via Hierarchy-Forward relation). Child PBI created dates are fetched individually from ADO. If no child PBIs exist, TTD is left blank.' },
+  { id:26, cat:'Calculations', q:'How is Release Quality calculated when there are no bugs?',
+    a:'If a pod has zero bugs in a month, RQ defaults to 100% (perfect). This is intentional — absence of bugs is a positive signal. The dashboard excludes Deferred, Removed, and Rejected bugs from the calculation.' },
+  { id:27, cat:'Calculations', q:'What happens to KPIs with no data?',
+    a:'KPIs with no data for a month show "N/A" on the card and are excluded from the health score calculation for that month. A pod\'s health score is only calculated from KPIs that have actual data.' },
+
+  // ── DATA & SOURCES ─────────────────────────────────────────────────
+  { id:28, cat:'Data & Sources', q:'Which ADO projects map to which pods?',
+    a:'"AI ML COE"→Lumina, "API_Integrations"→API-IDM, "Aurigo Essentials 2.0"→Build, "Aurigo MW Modernization"→MW UI, "Aurigo Plan 2.0"→Plan, "AurigoMasterworks"→QPR, "MW Platform 2.0"→Aurigo Reporting, "MWPRO_Configplus"→Configplus, "Mobile-NexGen-Aurigo-Build"→Mobile.' },
+  { id:29, cat:'Data & Sources', q:'Why is T2FU_Days not in the CSV?',
+    a:'Custom.T2FU_Days does not exist as an ADO field — it was confirmed missing from the org-level field definitions (514 fields searched). T2FU is entered manually via the Manual Inputs panel from Pendo data. Including it in the batch fetch caused all PBI/Feature pulls to fail with TF51535 error.' },
+  { id:30, cat:'Data & Sources', q:'What work item types are pulled for PBIs?',
+    a:'Both "Product Backlog Item" and "Architecture" work item types are included in the PBI pull. This ensures architectural work items count toward Tech Debt and other metrics.' },
+  { id:31, cat:'Data & Sources', q:'How are bugs filtered?',
+    a:'Bugs are pulled by CreatedDate (not ClosedDate) since bug creation is the relevant event for Release Quality. Bugs with state Deferred, Removed, or Rejected are excluded. Production bugs are those with BugOrigin = "Customer", "Solution Engineering", or "Sustenance Engineering".' },
+  { id:32, cat:'Data & Sources', q:'Why do some pods show 0 PBIs in April?',
+    a:'Aurigo Plan 2.0 and AurigoMasterworks had 0 PBIs closed/done in April 1–8. This is expected — not all pods close work items every week. Data will appear when items are marked Done in ADO.' },
+  { id:33, cat:'Data & Sources', q:'How are sprints pulled?',
+    a:'Sprints are pulled via the team iterations API. The script tries the default team first, then falls back to fetching all teams for a project and using the first team with iterations. Sprints are filtered to only those overlapping the current date range.' },
+  { id:34, cat:'Data & Sources', q:'What is the ClosedDate vs ChangedDate issue?',
+    a:'Most ADO items use "Done" state instead of "Closed", and ClosedDate (Microsoft.VSTS.Common.ClosedDate) IS populated when items move to Done. However, times are stored in UTC — an item done at midnight IST is stored as the previous day in UTC. The workflow uses a 1-day buffer in WIQL then filters strictly in PowerShell.' },
+
+  // ── MANUAL INPUTS ──────────────────────────────────────────────────
+  { id:35, cat:'Manual Inputs', q:'How do I enter manual KPI values?',
+    a:'Click "Manual Inputs" in the header. Select the month and pod (or Org-wide). Enter values in the input fields. Click Save to persist to GitHub — the values will be visible across all devices. Changes apply instantly to charts and scores without saving.' },
+  { id:36, cat:'Manual Inputs', q:'Where are manual inputs stored?',
+    a:'Manual inputs are saved to manual_data.json in the GitHub repo root (manishwali/Experiment). The file is read on every page load via raw.githubusercontent.com. It\'s created automatically on first save.' },
+  { id:37, cat:'Manual Inputs', q:'Which KPIs require manual entry?',
+    a:'Four KPIs: AI Adoption (% engineers using Copilot/Claude), AI Productivity (SP per million tokens), Product Adoption (% from Pendo — QPR, Build, Mobile pods only), and Time to First Usage (days from Pendo — Build pod only).' },
+  { id:38, cat:'Manual Inputs', q:'Do manual inputs persist after clicking Update Dashboard?',
+    a:'Yes. Manual inputs are re-applied after every data load via applyManualData(). The values in state.manualInputs are layered on top of CSV data every time, so they are never lost on refresh.' },
+  { id:39, cat:'Manual Inputs', q:'What token do I need to save manual inputs?',
+    a:'The same GitHub PAT used for "Refresh from ADO". It needs repo scope (Contents: write) to create/update manual_data.json. The token is stored in sessionStorage for the browser session and prompted automatically when needed.' },
+
+  // ── CHARTS & VISUALISATION ─────────────────────────────────────────
+  { id:40, cat:'Charts', q:'Why do some charts only show Jan–Mar data?',
+    a:'Charts only plot months where that specific KPI has data. AI Adoption, AI Productivity, Product Adoption, and T2FU show Jan–Mar because no April values have been entered via Manual Inputs yet. CSV-driven KPIs (FV, RQ, TTD etc.) extend to April automatically.' },
+  { id:41, cat:'Charts', q:'Why does the TTD chart extend to April but others don\'t?',
+    a:'TTD is calculated from Features in ADO — 9 features were pulled for April with DemoDate set, giving a TTD value of 280.7d. KPIs that have no April data (because no manual values entered or no ADO items) will not extend to April.' },
+  { id:42, cat:'Charts', q:'What does the health score donut chart show?',
+    a:'The donut chart shows the org health score (0–100) with colour coding: green segment for healthy pods, amber for watch, red for at-risk. The number in the center is the overall score.' },
+  { id:43, cat:'Charts', q:'How do I download a chart as PDF?',
+    a:'Click the "↓ PDF" button in the top-right of any KPI accordion (Corporate KPIs, Overall KPIs, Engineering KPIs). This uses html2canvas to capture the accordion section and download it as a PNG image.' },
+  { id:44, cat:'Charts', q:'What does the monthly vs quarterly toggle do?',
+    a:'Monthly view shows individual month data with a month dropdown. Quarterly view aggregates data into Q1/Q2/Q3/Q4 — KPI values are averaged across the months within the quarter that have data.' },
+
+  // ── TROUBLESHOOTING ────────────────────────────────────────────────
+  { id:45, cat:'Troubleshooting', q:'Why is the dashboard showing 0 PBIs after refresh?',
+    a:'Most commonly caused by: (1) ADO PAT expired or insufficient scope — needs Work Items (Read) org-wide. (2) Custom.T2FU_Days field in the batch request (now removed). (3) Timezone issue with ClosedDate filter (now fixed with 1-day buffer). Check GitHub Actions log for specific errors.' },
+  { id:46, cat:'Troubleshooting', q:'Why does the month dropdown show all 12 months?',
+    a:'This was caused by the Release Quality (rq) metric defaulting to 100 for all months, making them all appear active. Fixed by tracking orgAcc.hasData — a flag set only when real CSV rows are processed, used as the definitive cap for the dropdown.' },
+  { id:47, cat:'Troubleshooting', q:'How do I trigger a manual ADO data refresh?',
+    a:'Click "Refresh from ADO" in the header. Enter your GitHub PAT when prompted. The workflow runs in GitHub Actions, pulls April 1 to today, and the dashboard auto-reloads after 4 minutes. The button shows a countdown timer.' },
+  { id:48, cat:'Troubleshooting', q:'Why does my GitHub PAT not work for manual inputs?',
+    a:'The GitHub PAT needs repo scope (Contents: write permission) to create/update manual_data.json. A fine-grained PAT with only Actions: write will not work for saving manual inputs. Create a classic PAT with "repo" scope.' },
+  { id:49, cat:'Troubleshooting', q:'Why are AI Adoption values not showing in April?',
+    a:'AI Adoption is a manual input — it has no ADO data source. Open Manual Inputs, select Apr-26, and enter the April AI Adoption percentage. Click Save to persist.' },
+  { id:50, cat:'Troubleshooting', q:'The dashboard shows "Running locally" — why?',
+    a:'The dashboard detects it\'s running via file:// protocol (not GitHub Pages). In local mode, it shows Q1 static data only and cannot load CSVs. Deploy to GitHub Pages or a web server to load live data.' },
+  { id:51, cat:'Troubleshooting', q:'Why does Feature Velocity show lower in April vs March?',
+    a:'April FV is lower because the data only covers April 1–8 (8 days), whereas March had a full month of closed PBIs. FV will increase as more PBIs are closed during April. This is expected and not a performance issue.' },
+  { id:52, cat:'Troubleshooting', q:'How do I clear my GitHub token from the session?',
+    a:'Click "Clear Token" in the header. This removes the PAT from sessionStorage. You\'ll be prompted to enter it again the next time you trigger a refresh or save manual inputs.' },
+];
+
+const FAQ_CATS = [...new Set(FAQ_KB.map(f => f.cat))];
+let faqInited = false;
+let faqAITimer = null;
+
+function initFAQ() {
+  if (faqInited) return;
+  faqInited = true;
+  renderFAQCategories('All');
+  renderFAQList(FAQ_KB);
+}
+
+function renderFAQCategories(active) {
+  const el = document.getElementById('faqCategories');
+  const cats = ['All', ...FAQ_CATS];
+  el.innerHTML = cats.map(c => `
+    <button onclick="filterFAQCat('${c}')" style="
+      padding:5px 14px;border-radius:20px;font-size:12px;font-weight:500;cursor:pointer;
+      border:1px solid ${c===active?'var(--navy)':'var(--border)'};
+      background:${c===active?'var(--navy)':'#fff'};
+      color:${c===active?'#fff':'var(--text2)'};transition:all .15s;">${c}
+    </button>`).join('');
+}
+
+let faqActiveCat = 'All';
+function filterFAQCat(cat) {
+  faqActiveCat = cat;
+  renderFAQCategories(cat);
+  const q = document.getElementById('faqSearchInput').value.trim();
+  const filtered = cat === 'All' ? FAQ_KB : FAQ_KB.filter(f => f.cat === cat);
+  const results = q ? fuzzyFilter(filtered, q) : filtered;
+  renderFAQList(results);
+}
+
+function renderFAQList(items) {
+  const el = document.getElementById('faqList');
+  const rc = document.getElementById('faqResultCount');
+  rc.textContent = `${items.length} question${items.length!==1?'s':''} found`;
+  if (items.length === 0) {
+    el.innerHTML = `<div style="text-align:center;padding:48px;color:var(--text2);font-size:14px;">
+      No matching questions found.<br><span style="font-size:12px;margin-top:8px;display:block">Try different keywords or ask a free-form question above.</span></div>`;
+    return;
+  }
+  // Group by category
+  const bycat = {};
+  items.forEach(f => { if (!bycat[f.cat]) bycat[f.cat] = []; bycat[f.cat].push(f); });
+  el.innerHTML = Object.entries(bycat).map(([cat, qs]) => `
+    <div style="margin-bottom:24px;">
+      <div style="font-size:11px;font-weight:600;color:var(--navy);text-transform:uppercase;
+                  letter-spacing:.08em;margin-bottom:10px;padding-bottom:6px;
+                  border-bottom:2px solid var(--navy);">${cat}</div>
+      ${qs.map(f => `
+        <div class="faq-item" style="border:0.5px solid var(--border);border-radius:10px;
+             margin-bottom:8px;overflow:hidden;background:#fff;">
+          <button onclick="toggleFAQ(${f.id})" style="width:100%;text-align:left;padding:14px 18px;
+            background:none;border:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <span style="font-size:13px;font-weight:500;color:var(--text);line-height:1.4;">${f.q}</span>
+            <span id="faq-arrow-${f.id}" style="font-size:14px;color:var(--text2);flex-shrink:0;transition:transform .2s;">▼</span>
+          </button>
+          <div id="faq-ans-${f.id}" style="display:none;padding:0 18px 16px;
+               font-size:13px;color:var(--text2);line-height:1.7;border-top:0.5px solid var(--border);
+               background:var(--bg);">${f.a}</div>
+        </div>`).join('')}
+    </div>`).join('');
+}
+
+function toggleFAQ(id) {
+  const ans = document.getElementById('faq-ans-'+id);
+  const arr = document.getElementById('faq-arrow-'+id);
+  const open = ans.style.display !== 'none';
+  ans.style.display = open ? 'none' : 'block';
+  arr.style.transform = open ? '' : 'rotate(180deg)';
+  arr.style.color = open ? 'var(--text2)' : 'var(--navy)';
+}
+
+function fuzzyFilter(items, q) {
+  const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+  return items.filter(f => {
+    const text = (f.q + ' ' + f.a + ' ' + f.cat).toLowerCase();
+    return terms.every(t => text.includes(t));
+  }).sort((a, b) => {
+    // Boost items where query appears in question (not just answer)
+    const aq = a.q.toLowerCase(), bq = b.q.toLowerCase();
+    const ql = q.toLowerCase();
+    return (bq.includes(ql) ? 1 : 0) - (aq.includes(ql) ? 1 : 0);
+  });
+}
+
+let faqSearchTimer = null;
+function faqSearch(val) {
+  clearTimeout(faqSearchTimer);
+  const q = val.trim();
+  const base = faqActiveCat === 'All' ? FAQ_KB : FAQ_KB.filter(f => f.cat === faqActiveCat);
+
+  if (!q) {
+    document.getElementById('faqAIBox').style.display = 'none';
+    renderFAQList(base);
+    return;
+  }
+
+  // Instant fuzzy filter
+  const results = fuzzyFilter(base, q);
+  renderFAQList(results);
+
+  // AI answer after 800ms debounce if fewer than 3 results or question-like input
+  const isQuestion = q.includes('?') || q.split(' ').length >= 4;
+  if (isQuestion || results.length < 3) {
+    faqSearchTimer = setTimeout(() => askAI(q), 800);
+  }
+}
+
+async function askAI(question) {
+  const box    = document.getElementById('faqAIBox');
+  const ans    = document.getElementById('faqAIAnswer');
+  const think  = document.getElementById('faqAIThinking');
+  box.style.display = 'block';
+  think.style.display = 'inline';
+  ans.textContent = '';
+
+  const context = FAQ_KB.map(f => `Q: ${f.q}\nA: ${f.a}`).join('\n\n');
+  const prompt = `You are a helpful assistant for the Aurigo Product Engineering KPI Dashboard. Answer the user's question concisely using the knowledge base below. If the answer isn't in the knowledge base, say so honestly and provide your best answer based on general engineering KPI knowledge.\n\nKNOWLEDGE BASE:\n${context}\n\nUSER QUESTION: ${question}`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+    const data = await resp.json();
+    think.style.display = 'none';
+    ans.textContent = data.content?.[0]?.text || 'Could not get an answer. Please check the questions list below.';
+  } catch(e) {
+    think.style.display = 'none';
+    ans.textContent = 'AI answer unavailable. Please browse the questions below.';
+  }
+}
+
 </script>
 </body>
 </html>
