@@ -1,4 +1,6 @@
 ﻿"ID","Title","WorkItemType","Project","State","Month","CreatedDate","ClosedDate","CT_InProgress","IterationPath","ParentFeatureID","HasParent","StoryPoints","ValueArea","IsArchitectural","DV_Days","Sprint_Readiness"
+"1103176","Masterworks Connector - Permission Inheritance","Product Backlog Item","AI ML COE","Done","Apr-26","19-Nov-2024","20-Apr-2026","26-Feb-2026","AI ML COE\2026-SP02","1131391","1","2.0","","0","","1"
+"1219181","Tech - DB Search Permission Matrix Implementation - Access Control for Retrieved Responses","Product Backlog Item","AI ML COE","Done","Apr-26","14-May-2025","20-Apr-2026","03-Jun-2025","AI ML COE\2026-SP02","1463244","1","5.0","","0","20","1"
 "1240756","Demo with FAQ feature","Product Backlog Item","AI ML COE","Done","Apr-26","19-Jun-2025","07-Apr-2026","","AI ML COE\2025-SP6","1131391","1","0","","0","","0"
 "1290608","Tech - Iterative Learning for DB Search","Product Backlog Item","AI ML COE","Done","Apr-26","29-Aug-2025","07-Apr-2026","","AI ML COE\2026-SP01","1131391","1","8.0","","0","","0"
 "1401643","Token Counter in UI from AWS Bedrock CountTokens API","Product Backlog Item","AI ML COE","Done","Apr-26","30-Nov-2025","07-Apr-2026","","AI ML COE\2023-SP03","1388258","1","0","","0","","0"
