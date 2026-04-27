@@ -97,7 +97,7 @@
 "1470270","SCON_Non-Admin, update action is captured for the records updated via Excel in DPR and Item Posting","AurigoMasterworks","New","Apr-26","20-Apr-2026","Product Engineering","0"
 "1470290","Attachment Section: Folder structure is not getting displayed to link Documents if permissions are removed for the folder which has child folders","AurigoMasterworks","New","Apr-26","20-Apr-2026","Product Engineering","0"
 "1470315","creation and edit of submittals and transmittals from non-admin user","AurigoMasterworks","New","Apr-26","20-Apr-2026","Product Engineering","0"
-"1470452","[Feature]: The Allocated Amount Value in PFL is not resetting after deleting the contracts","AurigoMasterworks","New","Apr-26","20-Apr-2026","Product Engineering","0"
+"1470452","[Feature]: The Allocated Amount Value in PFL is not resetting after deleting the contracts","AurigoMasterworks","Committed","Apr-26","20-Apr-2026","Product Engineering","0"
 "1470678","[Feature]Total Amount Validation:Allows Equal split but rejects Unequal split.","AurigoMasterworks","Dev in progress","Apr-26","21-Apr-2026","Product Engineering","0"
 "1471801","[Feature]When User Deletes and add the same phase in same BER issues in Forecast.","AurigoMasterworks","New","Apr-26","23-Apr-2026","Product Engineering","0"
 "1471980","[Feature]Different Behavior of updating Forecast  when Phases are merged and Phases dates modified are Modified.","AurigoMasterworks","New","Apr-26","23-Apr-2026","Product Engineering","0"
