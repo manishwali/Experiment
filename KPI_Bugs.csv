@@ -148,6 +148,7 @@
 "1477546","Plan: Incorrect project count is displayed in Compare Scenarios","Aurigo Plan 2.0","New","May-26","08-May-2026","","0"
 "1479215","Project>Budget: Excel Import for Budget Item Issues","Aurigo Plan 2.0","New","May-26","13-May-2026","","0"
 "1479265","Charters: Unable to download attachments getting CORSS error","Aurigo Plan 2.0","Done","May-26","13-May-2026","","0"
+"1480616","Project > Calendar: Excel import template does not validate date format entries","Aurigo Plan 2.0","New","May-26","18-May-2026","","0"
 "1464315","Forecast creation allowed for BER without revision items","AurigoMasterworks","New","Apr-26","02-Apr-2026","Product Management","0"
 "1464423","[Generic]In BE Forecast Items Ignore Parent Container Dates and Default to Project Dates After Template Merge","AurigoMasterworks","New","Apr-26","02-Apr-2026","Product Engineering","0"
 "1465033","UT bug - Dates of merged container in forecast should not change after approval in the existing forecasts before merge","AurigoMasterworks","Done","Apr-26","06-Apr-2026","Product Engineering","0"
