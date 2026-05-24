@@ -197,7 +197,7 @@
 "1470678","[Feature]Total Amount Validation:Allows Equal split but rejects Unequal split.","AurigoMasterworks","Done","Apr-26","21-Apr-2026","Product Engineering","0"
 "1471801","[Feature]When User Deletes and add the same phase in same BER issues in Forecast.","AurigoMasterworks","New","Apr-26","23-Apr-2026","Product Engineering","0"
 "1472060","[Feature]Different Behavior in the Forecast of BER when Phases are Merged and Phases are Modified.","AurigoMasterworks","New","Apr-26","23-Apr-2026","Product Engineering","0"
-"1473520","[Feature] User encounters ""Request Failed"" after clicking on Yes/No in logout options for AIS enabled build","AurigoMasterworks","QA In Progress","Apr-26","28-Apr-2026","Product Engineering","0"
+"1473520","[Feature] User encounters ""Request Failed"" after clicking on Yes/No in logout options for AIS enabled build","AurigoMasterworks","Done","Apr-26","28-Apr-2026","Product Engineering","0"
 "1474112","[Feature]Error Message is displayed when ever user tries to Edit the Dirty Flag and save for the First Time.","AurigoMasterworks","New","Apr-26","29-Apr-2026","Product Engineering","0"
 "1475393","[Legacy] Project Phases : Wrong error message appears when phase date exceeds project end date","AurigoMasterworks","Done","May-26","04-May-2026","Product Engineering","0"
 "1475885","verification of edited submittal in submittal package audit log records (update action)","AurigoMasterworks","New","May-26","05-May-2026","Product Engineering","0"
