@@ -21,6 +21,7 @@
 "1505179","Tech- Lumina Doc Search  Accuracy & latency Improvements - Part 1","Product Backlog Item","AI ML COE","Done","Jul-26","29-Jun-2026","08-Jul-2026","29-Jun-2026","AI ML COE\SP 06","","0","13.0","Architectural","1","","1"
 "1508621","Tech- MW Site Creation for Agent Builder","Product Backlog Item","AI ML COE","Done","Jul-26","01-Jul-2026","03-Jul-2026","","AI ML COE\SP 06","","0","3.0","","0","","0"
 "1509427","Tech- Lumina Worker Optimization for Ingestion Part 1","Product Backlog Item","AI ML COE","Done","Jul-26","01-Jul-2026","08-Jul-2026","01-Jul-2026","AI ML COE\SP 06","","0","13.0","Architectural","1","","1"
+"1512336","Use reader instance in chatbot and worker","Product Backlog Item","AI ML COE","Done","Jul-26","08-Jul-2026","16-Jul-2026","","AI ML COE\2026-SP07","1512603","1","1.0","","0","","0"
 "1512337","HNSW and DB Indexes Optimisation (Continue monitoring Aurora/Postgres performance and indexing limitations)","Product Backlog Item","AI ML COE","Done","Jul-26","08-Jul-2026","09-Jul-2026","","AI ML COE\2026-SP07","1512603","1","0","","0","","0"
 "1512339","Analyze failed document ingestions - HTML parsing issues, corrupt files and Fix","Product Backlog Item","AI ML COE","Done","Jul-26","08-Jul-2026","15-Jul-2026","09-Jul-2026","AI ML COE\2026-SP07","1512603","1","3.0","","0","1","1"
 "1512346","Ask back after first retrieval","Product Backlog Item","AI ML COE","Done","Jul-26","08-Jul-2026","13-Jul-2026","11-Jul-2026","AI ML COE\2026-SP07","1512603","1","5.0","Functional","0","3","1"
