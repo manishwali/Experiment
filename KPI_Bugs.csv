@@ -558,7 +558,7 @@
 "1512586","Encroachment>> Invalid data accepted during workflow submission","AurigoMasterworks","New","Jul-26","08-Jul-2026","Solution Engineering","1"
 "1512718","[Legacy]Program Approval fails after 2nd BE Forecast Rejection.","AurigoMasterworks","New","Jul-26","08-Jul-2026","Product Engineering","0"
 "1512775","[Legacy] Change Password hyperlink is not working in View Profile popup","AurigoMasterworks","New","Jul-26","09-Jul-2026","Product Engineering","0"
-"1512802","[Toronto] Schedule page issues in New UI - 26.x.x","AurigoMasterworks","Dev in progress","Jul-26","09-Jul-2026","BA","0"
+"1512802","[Toronto] Schedule page issues in New UI - 26.x.x","AurigoMasterworks","Dev Completed","Jul-26","09-Jul-2026","BA","0"
 "1513076","Medium Severity Vulnerablity in Masterworks - MailKit-2.0.3.0.dll","AurigoMasterworks","New","Jul-26","09-Jul-2026","Security","0"
 "1514378","[Legacy] Item Posting Report : 'Needs Attention' status not refreshing on reports after approval of an old record","AurigoMasterworks","New","Jul-26","13-Jul-2026","Product Engineering","0"
 "1514541","Critical Severity Vulnerability in Masterworks - uuid-7.0.3.tgz","AurigoMasterworks","New","Jul-26","13-Jul-2026","Security","0"
