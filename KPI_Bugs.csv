@@ -670,7 +670,7 @@
 "1524858","[Feature]: When a source/destination program has InProgress revision, and user creates Fund Transfer record and try to approve, its throwing an error message","AurigoMasterworks","Done","Jul-26","29-Jul-2026","Product Engineering","0"
 "1524955","[ScratchBuild] Deployment is failing at module upload","AurigoMasterworks","Done","Jul-26","30-Jul-2026","Product Engineering","0"
 "1525300","[Requirement]ReassignFunds - Approved Transfer Amount Not Applied to Latest Approved Revision — No Validation Error Triggered When Destination Program Has a Newer Approved Revision","AurigoMasterworks","New","Jul-26","30-Jul-2026","Product Engineering","0"
-"1528007","[Feature Sanity]Remaining amount is not updated in the Basic View","AurigoMasterworks","QA In Progress","Aug-26","04-Aug-2026","Product Engineering","0"
+"1528007","[Feature Sanity]Remaining amount is not updated in the Basic View","AurigoMasterworks","Done","Aug-26","04-Aug-2026","Product Engineering","0"
 "1528112","[Feature Sanity] Program Forecast Amount Cells Reset to 0.00 When Selecting or Deselecting Projects","AurigoMasterworks","Done","Aug-26","04-Aug-2026","Product Engineering","0"
 "1529264","[Generic] [Intermittent] Program[Reassign funds]: Reassign Funds toolbar option shows only when user selects the records in Program List page","AurigoMasterworks","New","Aug-26","05-Aug-2026","Product Engineering","0"
 "1529354","[Legacy]When Phases dates are changed in Foreacst Project Duration is increased.","AurigoMasterworks","New","Aug-26","05-Aug-2026","Product Engineering","0"
