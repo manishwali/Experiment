@@ -294,6 +294,7 @@
 "1535335","Concurrency Issue: Same Title ID Assigned to Multiple Resources","Aurigo MW Modernization","New","Aug-26","21-Aug-2026","","0"
 "1535346","500 Internal Server Error occurs when creating a new resource via API after deleting an existing resource","Aurigo MW Modernization","Dev in progress","Aug-26","21-Aug-2026","","0"
 "1535439","Manual Resource Converts to Library Resource on Title ID Update","Aurigo MW Modernization","Dev in progress","Aug-26","21-Aug-2026","","0"
+"1535529","Containers list still shows containers even when no items are returned - Copy","Aurigo MW Modernization","Approved","Aug-26","22-Aug-2026","Product Engineering","0"
 "1463350","Plan: Tooltip info is not displayed in gantt view for In-progress project","Aurigo Plan 2.0","Done","Apr-26","01-Apr-2026","","0"
 "1463543","Configurations>Project Locations: Date Picker is not working","Aurigo Plan 2.0","Done","Apr-26","01-Apr-2026","","0"
 "1463574","Custom Property: The tooltip icon appears in different positions in View and Edit modes on the Consumption page.","Aurigo Plan 2.0","Done","Apr-26","01-Apr-2026","","0"
