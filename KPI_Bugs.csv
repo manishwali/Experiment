@@ -1047,6 +1047,7 @@
 "1539679","[Feature] Item Page Import: Getting Database Error during import for all Item Pages","MWPRO_Configplus","Done","Sep-26","02-Sep-2026","Product Engineering","0"
 "1540021","[Legacy] Autoincrement Control[From/Grid Level]: When the numbering logic has Types configured, an extra number is postfixed at the end of the generated values","MWPRO_Configplus","Approved","Sep-26","02-Sep-2026","Product Engineering","0"
 "1540029","[Feature] Error Message Configurator: Error message mismatch between the Error Message Configurator and the Form message","MWPRO_Configplus","Done","Sep-26","02-Sep-2026","Product Engineering","0"
+"1541425","[Feature] Library [Configuration Pack]: Data is missing, mismatched, or not displayed in the UI, and items inside containers are not shown in Library forms as part of the Configuration Pack","MWPRO_Configplus","New","Sep-26","06-Sep-2026","Product Engineering","0"
 "1463375","Tablet : [DOCMGMT] The document folder structure does not appear when one linked record uploaded through web","Mobile-NexGen-Aurigo-Build","New","Apr-26","01-Apr-2026","Product Engineering","0"
 "1463382","Mobile: Resume editing issue in UDOT DPR record","Mobile-NexGen-Aurigo-Build","Done","Apr-26","01-Apr-2026","","0"
 "1463426","Mobile: UDOT Weather widget field alignment issue (UI)","Mobile-NexGen-Aurigo-Build","Done","Apr-26","01-Apr-2026","","0"
